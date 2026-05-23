@@ -1,0 +1,27 @@
+{% extends 'core/base.html' %}
+{% block titulo %}Auditoría{% endblock %}
+{% block topbar_titulo %}Registro de auditoría{% endblock %}
+{% block contenido %}
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Descripción</th><th>IP</th></tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td style="white-space:nowrap">{{ log.fecha|date:"d/m/Y H:i:s" }}</td>
+          <td>{{ log.usuario.username|default:"Sistema" }}</td>
+          <td><span class="badge bg-secondary">{{ log.get_accion_display }}</span></td>
+          <td>{{ log.descripcion|truncatechars:80 }}</td>
+          <td><code>{{ log.ip_address|default:"—" }}</code></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">Sin registros.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,177 @@
+# ══════════════════════════════════════════════════════════════
+# FORMS — Módulo Core (Usuarios + Auth)
+# ══════════════════════════════════════════════════════════════
+
+from django import forms
+from django.contrib.auth.forms import (
+    AuthenticationForm, PasswordResetForm, SetPasswordForm
+)
+from django.core.exceptions import ValidationError
+from .models import Usuario
+
+
+# ─────────────────────────────────────────────
+# 1. LOGIN personalizado
+# ─────────────────────────────────────────────
+
+class LoginForm(AuthenticationForm):
+    username = forms.CharField(
+        label='Usuario',
+        widget=forms.TextInput(attrs={
+            'class':       'form-control form-control-lg',
+            'placeholder': 'Nombre de usuario',
+            'autofocus':   True,
+        })
+    )
+    password = forms.CharField(
+        label='Contraseña',
+        widget=forms.PasswordInput(attrs={
+            'class':       'form-control form-control-lg',
+            'placeholder': 'Contraseña',
+        })
+    )
+
+
+# ─────────────────────────────────────────────
+# 2. Alta de usuario (solo Admin)
+# ─────────────────────────────────────────────
+
+class UsuarioCrearForm(forms.ModelForm):
+    password1 = forms.CharField(
+        label='Contraseña',
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        help_text='Mínimo 8 caracteres, alfanumérica.'
+    )
+    password2 = forms.CharField(
+        label='Confirmar contraseña',
+        widget=forms.PasswordInput(attrs={'class': 'form-control'})
+    )
+
+    class Meta:
+        model  = Usuario
+        fields = ['first_name', 'last_name', 'cedula', 'email', 'telefono', 'username', 'rol']
+        widgets = {
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name':  forms.TextInput(attrs={'class': 'form-control'}),
+            'cedula':     forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'V-00000000'}),
+            'email':      forms.EmailInput(attrs={'class': 'form-control'}),
+            'telefono':   forms.TextInput(attrs={'class': 'form-control', 'placeholder': '0414-0000000'}),
+            'username':   forms.TextInput(attrs={'class': 'form-control'}),
+            'rol':        forms.Select(attrs={'class': 'form-select'}),
+        }
+        labels = {
+            'first_name': 'Nombre',
+            'last_name':  'Apellido',
+            'cedula':     'Cédula de identidad',
+            'email':      'Correo electrónico',
+            'telefono':   'Teléfono',
+            'username':   'Nombre de usuario',
+            'rol':        'Rol',
+        }
+
+    def clean_password2(self):
+        p1 = self.cleaned_data.get('password1', '')
+        p2 = self.cleaned_data.get('password2', '')
+        if p1 != p2:
+            raise ValidationError('Las contraseñas no coinciden.')
+        if len(p1) < 8:
+            raise ValidationError('La contraseña debe tener al menos 8 caracteres.')
+        if p1.isdigit() or p1.isalpha():
+            raise ValidationError('La contraseña debe ser alfanumérica (letras y números).')
+        return p2
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if Usuario.objects.filter(email=email).exists():
+            raise ValidationError('Ya existe un usuario con este correo.')
+        return email
+
+    def clean_cedula(self):
+        cedula = self.cleaned_data.get('cedula')
+        if Usuario.objects.filter(cedula=cedula).exists():
+            raise ValidationError('Ya existe un usuario con esta cédula.')
+        return cedula
+
+    def save(self, commit=True):
+        usuario = super().save(commit=False)
+        usuario.set_password(self.cleaned_data['password1'])
+        if commit:
+            usuario.save()
+        return usuario
+
+
+# ─────────────────────────────────────────────
+# 3. Edición de usuario (solo Admin)
+# ─────────────────────────────────────────────
+
+class UsuarioEditarForm(forms.ModelForm):
+    class Meta:
+        model  = Usuario
+        fields = ['first_name', 'last_name', 'cedula', 'email', 'telefono', 'rol']
+        widgets = {
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name':  forms.TextInput(attrs={'class': 'form-control'}),
+            'cedula':     forms.TextInput(attrs={'class': 'form-control'}),
+            'email':      forms.EmailInput(attrs={'class': 'form-control'}),
+            'telefono':   forms.TextInput(attrs={'class': 'form-control'}),
+            'rol':        forms.Select(attrs={'class': 'form-select'}),
+        }
+        labels = {
+            'first_name': 'Nombre',
+            'last_name':  'Apellido',
+            'cedula':     'Cédula',
+            'email':      'Correo electrónico',
+            'telefono':   'Teléfono',
+            'rol':        'Rol',
+        }
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        qs = Usuario.objects.filter(email=email).exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise ValidationError('Ya existe otro usuario con este correo.')
+        return email
+
+
+# ─────────────────────────────────────────────
+# 4. Recuperación de contraseña (email)
+# ─────────────────────────────────────────────
+
+class RecuperarPasswordForm(PasswordResetForm):
+    email = forms.EmailField(
+        label='Correo electrónico institucional',
+        widget=forms.EmailInput(attrs={
+            'class':       'form-control form-control-lg',
+            'placeholder': 'tucorreo@empresa.com',
+        })
+    )
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if not Usuario.objects.filter(email=email, is_active=True).exists():
+            raise ValidationError(
+                'No existe una cuenta activa con ese correo electrónico.'
+            )
+        return email
+
+
+# ─────────────────────────────────────────────
+# 5. Nueva contraseña (desde el enlace del correo)
+# ─────────────────────────────────────────────
+
+class NuevaPasswordForm(SetPasswordForm):
+    new_password1 = forms.CharField(
+        label='Nueva contraseña',
+        widget=forms.PasswordInput(attrs={
+            'class':       'form-control form-control-lg',
+            'placeholder': 'Nueva contraseña',
+        }),
+        help_text='Mínimo 8 caracteres, alfanumérica.'
+    )
+    new_password2 = forms.CharField(
+        label='Confirmar contraseña',
+        widget=forms.PasswordInput(attrs={
+            'class':       'form-control form-control-lg',
+            'placeholder': 'Repite la contraseña',
+        })
+    )

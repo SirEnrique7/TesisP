@@ -1,0 +1,23 @@
+{% extends 'core/base.html' %}
+{% block titulo %}Cancelar orden{% endblock %}
+{% block topbar_titulo %}Cancelar orden de compra{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-lg-5">
+    <div class="card border-danger">
+      <div class="card-header text-danger">Confirmar cancelación</div>
+      <div class="card-body">
+        <p>¿Seguro que deseas cancelar la orden <strong>{{ compra.numero_referencia }}</strong>?</p>
+        <p class="text-muted small">Proveedor: {{ compra.proveedor.nombre }}</p>
+        <div class="alert alert-warning">Esta acción no se puede deshacer.</div>
+        <form method="post" class="d-flex gap-2">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">Sí, cancelar</button>
+          <a href="{% url 'compras:detalle_compra' compra.pk %}"
+             class="btn btn-outline-secondary">Volver</a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

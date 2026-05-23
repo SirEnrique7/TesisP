@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block titulo %}Inversiones Ramón{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --azul:        #1a56db;
+      --azul-dark:   #1344b8;
+      --sidebar-w:   250px;
+      --sidebar-bg:  #0f172a;
+      --sidebar-txt: #94a3b8;
+      --sidebar-hover: #1e293b;
+      --gris-bg:     #f4f6fb;
+    }
+    body { background: var(--gris-bg); font-family: 'Segoe UI', sans-serif; margin: 0; }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      position: fixed; top: 0; left: 0;
+      width: var(--sidebar-w); height: 100vh;
+      background: var(--sidebar-bg);
+      display: flex; flex-direction: column;
+      z-index: 100; overflow-y: auto;
+    }
+    .sidebar-brand {
+      padding: 1.25rem 1.25rem .75rem;
+      font-size: .7rem; font-weight: 700;
+      letter-spacing: .12em; color: #fff;
+      text-transform: uppercase;
+      border-bottom: 1px solid #1e293b;
+    }
+    .sidebar-brand span { color: var(--azul); }
+
+    .nav-section {
+      padding: .6rem 1.25rem .2rem;
+      font-size: .62rem; font-weight: 700;
+      letter-spacing: .1em; color: #475569;
+      text-transform: uppercase;
+    }
+    .sidebar-link {
+      display: flex; align-items: center; gap: .6rem;
+      padding: .5rem 1.25rem; color: var(--sidebar-txt);
+      text-decoration: none; font-size: .85rem;
+      transition: background .15s, color .15s;
+    }
+    .sidebar-link:hover  { background: var(--sidebar-hover); color: #e2e8f0; }
+    .sidebar-link.active { background: var(--azul); color: #fff; }
+    .sidebar-link i      { font-size: 1rem; width: 1.2rem; text-align: center; }
+
+    .sidebar-footer {
+      margin-top: auto; padding: 1rem 1.25rem;
+      border-top: 1px solid #1e293b;
+    }
+    .badge-rol {
+      font-size: .62rem; padding: .2rem .45rem;
+      border-radius: 4px; background: var(--azul); color: #fff;
+    }
+
+    /* ── Tasa BCV ── */
+    .tasa-pill {
+      margin: .5rem 1.25rem;
+      background: #1e293b; border-radius: 8px;
+      padding: .5rem .75rem; font-size: .75rem; color: #94a3b8;
+    }
+    .tasa-pill strong { color: #4ade80; }
+
+    /* ── Main ── */
+    #main { margin-left: var(--sidebar-w); min-height: 100vh; }
+
+    .topbar {
+      background: #fff; border-bottom: 1px solid #e5e7eb;
+      padding: .75rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .topbar-title { font-weight: 600; font-size: 1rem; color: #111827; }
+    .page-body    { padding: 1.5rem; }
+
+    /* ── Cards ── */
+    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: none; }
+    .card-header { background: #fff; border-bottom: 1px solid #e5e7eb; font-weight: 600; font-size: .9rem; }
+
+    /* ── Stat cards ── */
+    .stat-card {
+      background: #fff; border: 1px solid #e5e7eb;
+      border-radius: 10px; padding: 1.25rem;
+      display: flex; align-items: center; gap: 1rem;
+    }
+    .stat-icon {
+      width: 48px; height: 48px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; font-size: 1.4rem;
+    }
+    .stat-icon.azul    { background: #eff6ff; color: var(--azul); }
+    .stat-icon.verde   { background: #f0fdf4; color: #16a34a; }
+    .stat-icon.rojo    { background: #fff1f2; color: #e11d48; }
+    .stat-icon.naranja { background: #fff7ed; color: #ea580c; }
+    .stat-icon.morado  { background: #f5f3ff; color: #7c3aed; }
+    .stat-num   { font-size: 1.5rem; font-weight: 700; color: #111827; line-height: 1; }
+    .stat-label { font-size: .78rem; color: #6b7280; }
+
+    /* ── Tabla ── */
+    .table th {
+      font-size: .75rem; font-weight: 600; color: #6b7280;
+      text-transform: uppercase; letter-spacing: .05em; background: #f9fafb;
+    }
+    .table td { vertical-align: middle; font-size: .875rem; }
+
+    /* ── Botones ── */
+    .btn-primary { background: var(--azul); border-color: var(--azul); }
+    .btn-primary:hover { background: var(--azul-dark); border-color: var(--azul-dark); }
+
+    /* ── Alertas ── */
+    .alert { border-radius: 8px; font-size: .875rem; }
+
+    /* ── Badge usuario inactivo ── */
+    .badge-inactivo { background: #fee2e2; color: #991b1b; font-size: .7rem; }
+    .badge-activo   { background: #d1fae5; color: #065f46; font-size: .7rem; }
+
+    {% block extra_css_vars %}{% endblock %}
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- ═══ SIDEBAR ═══ -->
+<nav id="sidebar">
+  <div class="sidebar-brand">Inv. <span>Ramón</span> <br><small style="opacity:.5;font-size:.6rem">Sistema de gestión</small></div>
+
+  {% if tasa_bcv %}
+  <div class="tasa-pill">
+    <i class="bi bi-currency-exchange me-1"></i>
+    BCV hoy: <strong>Bs. {{ tasa_bcv.tasa_bs_usd }}</strong>
+  </div>
+  {% endif %}
+
+  <div class="mt-1">
+    <div class="nav-section">Principal</div>
+    <a href="{% url 'core:dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+      <i class="bi bi-grid-1x2"></i> Dashboard
+    </a>
+
+    <div class="nav-section mt-1">Inventario</div>
+    <a href="{% url 'inventario:lista_productos' %}" class="sidebar-link {% if 'producto' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-box-seam"></i> Productos
+    </a>
+    <a href="{% url 'inventario:lista_solicitudes' %}" class="sidebar-link {% if 'solicitud' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-send"></i> Solicitudes
+    </a>
+
+    <div class="nav-section mt-1">Compras</div>
+    <a href="{% url 'compras:lista_compras' %}" class="sidebar-link {% if 'compra' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-cart3"></i> Órdenes de compra
+    </a>
+    {% if user.es_admin %}
+    <a href="{% url 'core:lista_cuentas_pagar' %}" class="sidebar-link {% if 'pagar' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-credit-card"></i> Cuentas por pagar
+    </a>
+    {% endif %}
+
+    <div class="nav-section mt-1">Ventas</div>
+    <a href="{% url 'ventas:lista_ventas' %}" class="sidebar-link {% if 'venta' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-receipt"></i> Ventas
+    </a>
+    {% if user.es_admin %}
+    <a href="{% url 'core:lista_cuentas_cobrar' %}" class="sidebar-link {% if 'cobrar' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-cash-stack"></i> Cuentas por cobrar
+    </a>
+    {% endif %}
+
+    {% if user.es_admin %}
+    <div class="nav-section mt-1">Administración</div>
+    <a href="{% url 'inventario:lista_categorias' %}" class="sidebar-link {% if 'categoria' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-tags"></i> Categorías
+    </a>
+    <a href="{% url 'inventario:lista_proveedores' %}" class="sidebar-link {% if 'proveedor' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-truck"></i> Proveedores
+    </a>
+    <a href="{% url 'core:lista_usuarios' %}" class="sidebar-link {% if 'usuario' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-people"></i> Personal
+    </a>
+    <a href="{% url 'reportes:index' %}" class="sidebar-link {% if 'reporte' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-bar-chart-line"></i> Reportes
+    </a>
+    <a href="{% url 'core:auditoria' %}" class="sidebar-link {% if 'auditoria' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-shield-check"></i> Auditoría
+    </a>
+    {% endif %}
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <i class="bi bi-person-circle fs-4 text-slate-400"></i>
+      <div>
+        <div style="font-size:.8rem; color:#e2e8f0; font-weight:600">
+          {{ user.get_nombre_completo }}
+        </div>
+        <span class="badge-rol">{{ user.get_rol_display }}</span>
+      </div>
+    </div>
+    <a href="{% url 'core:logout' %}" class="sidebar-link px-0" style="color:#f87171">
+      <i class="bi bi-box-arrow-left"></i> Cerrar sesión
+    </a>
+  </div>
+</nav>
+
+<!-- ═══ MAIN ═══ -->
+<div id="main">
+  <div class="topbar">
+    <span class="topbar-title">{% block topbar_titulo %}{% endblock %}</span>
+    <div class="d-flex align-items-center gap-2">
+      {% block topbar_acciones %}{% endblock %}
+    </div>
+  </div>
+
+  <div class="page-body">
+    {% for msg in messages %}
+    <div class="alert alert-{{ msg.tags }} alert-dismissible fade show" role="alert">
+      {{ msg }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+
+    {% block contenido %}{% endblock %}
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

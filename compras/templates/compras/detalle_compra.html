@@ -1,0 +1,201 @@
+{% extends 'core/base.html' %}
+{% block titulo %}{{ compra.numero_referencia }}{% endblock %}
+{% block topbar_titulo %}{{ compra.numero_referencia }} — {{ compra.proveedor.nombre }}{% endblock %}
+
+{% block topbar_acciones %}
+  {% if compra.estado == 'pendiente' and user.es_admin %}
+  <a href="{% url 'compras:aprobar_compra' compra.pk %}" class="btn btn-sm btn-warning">
+    <i class="bi bi-check-lg me-1"></i>Aprobar / Rechazar
+  </a>
+  {% endif %}
+  {% if compra.estado == 'aprobada' and user.es_admin %}
+  <a href="{% url 'compras:recibir_compra' compra.pk %}" class="btn btn-sm btn-primary">
+    <i class="bi bi-box-arrow-in-down me-1"></i>Registrar recepción
+  </a>
+  {% endif %}
+  {% if compra.estado == 'pendiente' %}
+  <a href="{% url 'compras:cancelar_compra' compra.pk %}" class="btn btn-sm btn-outline-danger">
+    Cancelar
+  </a>
+  {% endif %}
+{% endblock %}
+
+{% block contenido %}
+<div class="row g-3">
+
+  <!-- Columna izquierda: info de la orden -->
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header">Información de la orden</div>
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-6">
+            <div class="text-muted small">Referencia</div>
+            <code class="fs-6">{{ compra.numero_referencia }}</code>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">Estado</div>
+            {% if compra.estado == 'pendiente' %}<span class="badge bg-warning text-dark">Pendiente aprobación</span>
+            {% elif compra.estado == 'aprobada' %}
+              <span class="badge bg-success">Aprobada</span>
+              <div class="small text-muted mt-1"><i class="bi bi-truck"></i> Mercancía en camino</div>
+            {% elif compra.estado == 'recibida' %}<span class="badge bg-primary">Recibida</span>
+            {% elif compra.estado == 'rechazada' %}<span class="badge bg-danger">Rechazada</span>
+            {% elif compra.estado == 'cancelada' %}<span class="badge bg-secondary">Cancelada</span>
+            {% endif %}
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">Proveedor</div>
+            <strong>{{ compra.proveedor.nombre }}</strong>
+            {% if compra.proveedor.dia_visita %}
+            <div class="text-muted" style="font-size:.75rem">Visita: {{ compra.proveedor.get_dia_visita_display }}</div>
+            {% endif %}
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">Creada por</div>
+            {{ compra.creada_por.get_nombre_completo|default:"—" }}
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">F. creación</div>
+            {{ compra.fecha_creacion|date:"d/m/Y H:i" }}
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">F. estimada entrega</div>
+            {{ compra.fecha_estimada|date:"d/m/Y"|default:"—" }}
+          </div>
+          {% if compra.fecha_aprobacion %}
+          <div class="col-6">
+            <div class="text-muted small">Aprobada por</div>
+            {{ compra.aprobada_por.get_nombre_completo|default:"—" }}
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">F. aprobación</div>
+            {{ compra.fecha_aprobacion|date:"d/m/Y H:i" }}
+          </div>
+          {% endif %}
+          {% if compra.fecha_recepcion %}
+          <div class="col-6">
+            <div class="text-muted small">F. recepción real</div>
+            {{ compra.fecha_recepcion|date:"d/m/Y H:i" }}
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">Referencia doc.</div>
+            <code>{{ compra.referencia_documento|default:"—" }}</code>
+          </div>
+          {% endif %}
+          {% if compra.observacion %}
+          <div class="col-12">
+            <div class="text-muted small">Observaciones</div>
+            {{ compra.observacion }}
+          </div>
+          {% endif %}
+          {% if compra.motivo_rechazo %}
+          <div class="col-12">
+            <div class="text-muted small">Motivo de rechazo</div>
+            <span class="text-danger">{{ compra.motivo_rechazo }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Info de pago (solo admin y solo si fue recibida) -->
+    {% if user.es_admin and compra.estado == 'recibida' %}
+    <div class="card mb-3">
+      <div class="card-header">Información de pago</div>
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-6">
+            <div class="text-muted small">Modalidad</div>
+            <strong>{{ compra.get_modalidad_pago_display|default:"—" }}</strong>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">Estado pago</div>
+            {% if compra.pagado %}<span class="badge bg-success">Pagado</span>
+            {% else %}<span class="badge bg-warning text-dark">Pendiente</span>{% endif %}
+          </div>
+          {% if compra.modalidad_pago == 'credito' and not compra.pagado %}
+          <div class="col-12">
+            <div class="text-muted small">Vence</div>
+            {{ compra.fecha_vencimiento|date:"d/m/Y"|default:"—" }}
+            <a href="{% url 'core:detalle_cuenta_pagar' cuenta.pk %}" class="btn btn-sm btn-outline-primary ms-2">
+              Ver cuenta por pagar
+            </a>
+          </div>
+          {% endif %}
+          <div class="col-6">
+            <div class="text-muted small">Total (Bs.)</div>
+            <strong class="fs-5">Bs. {{ compra.total|floatformat:2 }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Columna derecha: productos -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">Productos de la orden</div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th class="text-center">Pedido</th>
+              <th class="text-center">Recibido</th>
+              {% if user.es_admin %}<th class="text-end">Precio unit.</th><th class="text-end">Subtotal</th>{% endif %}
+              <th class="text-center">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in detalles %}
+            <tr>
+              <td>
+                <strong>{{ d.producto.nombre }}</strong>
+                <div class="text-muted" style="font-size:.75rem"><code>{{ d.producto.codigo }}</code></div>
+              </td>
+              <td class="text-center">{{ d.cantidad_pedida }}</td>
+              <td class="text-center">
+                {% if compra.estado == 'recibida' %}
+                  {% if d.entrega_incompleta %}
+                  <span class="text-danger fw-bold">{{ d.cantidad_recibida }}</span>
+                  {% else %}
+                  <span class="text-success fw-bold">{{ d.cantidad_recibida }}</span>
+                  {% endif %}
+                {% else %}—{% endif %}
+              </td>
+              {% if user.es_admin %}
+              <td class="text-end">Bs. {{ d.precio_unitario|floatformat:2 }}</td>
+              <td class="text-end">Bs. {{ d.subtotal|floatformat:2 }}</td>
+              {% endif %}
+              <td class="text-center">
+                {% if compra.estado == 'aprobada' %}
+                <span class="badge bg-info text-dark">En camino</span>
+                {% elif compra.estado == 'recibida' %}
+                  {% if d.entrega_incompleta %}
+                  <span class="badge bg-warning text-dark">Incompleto (faltaron {{ d.diferencia }})</span>
+                  {% else %}
+                  <span class="badge bg-success">Completo</span>
+                  {% endif %}
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          {% if user.es_admin and compra.estado == 'recibida' %}
+          <tfoot>
+            <tr>
+              <td colspan="4" class="text-end fw-bold">Total:</td>
+              <td class="text-end fw-bold">Bs. {{ compra.total|floatformat:2 }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,327 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.utils import timezone
+from django.db.models import Q
+
+from inventario.models import (
+    Producto, Categoria, Proveedor,
+    SolicitudInventario, MovimientoInventario
+)
+from .forms import (
+    ProductoForm, CategoriaForm, ProveedorForm,
+    SolicitudInventarioForm, ResponderSolicitudForm
+)
+from inventario.decorators import solo_admin, login_requerido
+
+
+# ─────────────────────────────────────────────
+# DASHBOARD
+# ─────────────────────────────────────────────
+
+@login_requerido
+def dashboard(request):
+    productos_bajo_stock = Producto.objects.filter(activo=True).order_by('stock_actual')
+    productos_bajo_stock = [p for p in productos_bajo_stock if p.stock_bajo]
+
+    solicitudes_pendientes = SolicitudInventario.objects.filter(
+        estado='pendiente'
+    ).count() if request.user.es_admin() else SolicitudInventario.objects.filter(
+        estado='pendiente', empleado=request.user
+    ).count()
+
+    total_productos = Producto.objects.filter(activo=True).count()
+
+    context = {
+        'productos_bajo_stock':    productos_bajo_stock,
+        'solicitudes_pendientes':  solicitudes_pendientes,
+        'total_productos':         total_productos,
+    }
+    return render(request, 'inventario/dashboard.html', context)
+
+
+# ─────────────────────────────────────────────
+# PRODUCTOS
+# ─────────────────────────────────────────────
+
+@login_requerido
+def lista_productos(request):
+    query      = request.GET.get('q', '')
+    categoria  = request.GET.get('categoria', '')
+    solo_bajos = request.GET.get('bajo_stock', '')
+
+    productos = Producto.objects.filter(activo=True).select_related('categoria', 'proveedor')
+
+    if query:
+        productos = productos.filter(
+            Q(nombre__icontains=query) | Q(codigo__icontains=query)
+        )
+    if categoria:
+        productos = productos.filter(categoria_id=categoria)
+
+    productos = list(productos.order_by('nombre'))
+
+    if solo_bajos:
+        productos = [p for p in productos if p.stock_bajo]
+
+    categorias = Categoria.objects.all()
+
+    return render(request, 'inventario/lista_productos.html', {
+        'productos':  productos,
+        'categorias': categorias,
+        'query':      query,
+    })
+
+
+@login_requerido
+def detalle_producto(request, pk):
+    producto    = get_object_or_404(Producto, pk=pk)
+    movimientos = MovimientoInventario.objects.filter(
+        producto=producto
+    ).order_by('-fecha')[:20]
+
+    return render(request, 'inventario/detalle_producto.html', {
+        'producto':    producto,
+        'movimientos': movimientos,
+    })
+
+
+@solo_admin
+def crear_producto(request):
+    if request.method == 'POST':
+        form = ProductoForm(request.POST)
+        if form.is_valid():
+            producto = form.save()
+            # Registrar movimiento inicial si hay stock
+            if producto.stock_actual > 0:
+                MovimientoInventario.objects.create(
+                    producto=producto,
+                    tipo='entrada',
+                    cantidad=producto.stock_actual,
+                    motivo='Stock inicial al crear el producto',
+                    usuario=request.user,
+                )
+            messages.success(request, f'Producto "{producto.nombre}" creado correctamente.')
+            return redirect('inventario:lista_productos')
+    else:
+        form = ProductoForm()
+
+    return render(request, 'inventario/form_producto.html', {
+        'form':   form,
+        'titulo': 'Nuevo producto',
+        'accion': 'Crear',
+    })
+
+
+@solo_admin
+def editar_producto(request, pk):
+    producto = get_object_or_404(Producto, pk=pk)
+    stock_anterior = producto.stock_actual
+
+    if request.method == 'POST':
+        form = ProductoForm(request.POST, instance=producto)
+        if form.is_valid():
+            producto = form.save()
+            # Registrar ajuste si cambió el stock manualmente
+            diferencia = producto.stock_actual - stock_anterior
+            if diferencia != 0:
+                MovimientoInventario.objects.create(
+                    producto=producto,
+                    tipo='ajuste',
+                    cantidad=abs(diferencia),
+                    motivo=f'Ajuste manual desde edición ({"+" if diferencia > 0 else ""}{diferencia})',
+                    usuario=request.user,
+                )
+            messages.success(request, f'Producto "{producto.nombre}" actualizado.')
+            return redirect('inventario:detalle_producto', pk=producto.pk)
+    else:
+        form = ProductoForm(instance=producto)
+
+    return render(request, 'inventario/form_producto.html', {
+        'form':     form,
+        'titulo':   f'Editar: {producto.nombre}',
+        'accion':   'Guardar cambios',
+        'producto': producto,
+    })
+
+
+@solo_admin
+def desactivar_producto(request, pk):
+    producto = get_object_or_404(Producto, pk=pk)
+    producto.activo = False
+    producto.save()
+    messages.warning(request, f'Producto "{producto.nombre}" desactivado.')
+    return redirect('inventario:lista_productos')
+
+
+# ─────────────────────────────────────────────
+# CATEGORÍAS
+# ─────────────────────────────────────────────
+
+@solo_admin
+def lista_categorias(request):
+    categorias = Categoria.objects.all().order_by('nombre')
+    return render(request, 'inventario/lista_categorias.html', {'categorias': categorias})
+
+
+@solo_admin
+def crear_categoria(request):
+    if request.method == 'POST':
+        form = CategoriaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Categoría creada.')
+            return redirect('inventario:lista_categorias')
+    else:
+        form = CategoriaForm()
+    return render(request, 'inventario/form_categoria.html', {'form': form, 'titulo': 'Nueva categoría'})
+
+
+@solo_admin
+def editar_categoria(request, pk):
+    categoria = get_object_or_404(Categoria, pk=pk)
+    if request.method == 'POST':
+        form = CategoriaForm(request.POST, instance=categoria)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Categoría actualizada.')
+            return redirect('inventario:lista_categorias')
+    else:
+        form = CategoriaForm(instance=categoria)
+    return render(request, 'inventario/form_categoria.html', {
+        'form': form, 'titulo': f'Editar: {categoria.nombre}'
+    })
+
+
+# ─────────────────────────────────────────────
+# PROVEEDORES
+# ─────────────────────────────────────────────
+
+@solo_admin
+def lista_proveedores(request):
+    proveedores = Proveedor.objects.all().order_by('nombre')
+    return render(request, 'inventario/lista_proveedores.html', {'proveedores': proveedores})
+
+
+@solo_admin
+def crear_proveedor(request):
+    if request.method == 'POST':
+        form = ProveedorForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Proveedor registrado.')
+            return redirect('inventario:lista_proveedores')
+    else:
+        form = ProveedorForm()
+    return render(request, 'inventario/form_proveedor.html', {'form': form, 'titulo': 'Nuevo proveedor'})
+
+
+@solo_admin
+def editar_proveedor(request, pk):
+    proveedor = get_object_or_404(Proveedor, pk=pk)
+    if request.method == 'POST':
+        form = ProveedorForm(request.POST, instance=proveedor)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Proveedor actualizado.')
+            return redirect('inventario:lista_proveedores')
+    else:
+        form = ProveedorForm(instance=proveedor)
+    return render(request, 'inventario/form_proveedor.html', {
+        'form': form, 'titulo': f'Editar: {proveedor.nombre}'
+    })
+
+
+# ─────────────────────────────────────────────
+# SOLICITUDES DE INVENTARIO
+# ─────────────────────────────────────────────
+
+@login_requerido
+def lista_solicitudes(request):
+    if request.user.es_admin():
+        solicitudes = SolicitudInventario.objects.all().select_related(
+            'empleado', 'producto', 'admin'
+        ).order_by('-fecha_solicitud')
+    else:
+        solicitudes = SolicitudInventario.objects.filter(
+            empleado=request.user
+        ).select_related('producto', 'admin').order_by('-fecha_solicitud')
+
+    return render(request, 'inventario/lista_solicitudes.html', {'solicitudes': solicitudes})
+
+
+@login_requerido
+def crear_solicitud(request):
+    if request.user.es_admin():
+        messages.info(request, 'El admin gestiona directamente el inventario.')
+        return redirect('inventario:lista_productos')
+
+    if request.method == 'POST':
+        form = SolicitudInventarioForm(request.POST)
+        if form.is_valid():
+            solicitud = form.save(commit=False)
+            solicitud.empleado = request.user
+            solicitud.save()
+            messages.success(request, 'Solicitud enviada al administrador.')
+            return redirect('inventario:lista_solicitudes')
+    else:
+        # Pre-seleccionar producto si viene por URL
+        producto_id = request.GET.get('producto')
+        form = SolicitudInventarioForm(initial={'producto': producto_id} if producto_id else {})
+
+        # Sugerencia de cantidad
+        sugerencia = None
+        if producto_id:
+            try:
+                p = Producto.objects.get(pk=producto_id)
+                sugerencia = p.cantidad_sugerida_pedido
+            except Producto.DoesNotExist:
+                pass
+
+    return render(request, 'inventario/form_solicitud.html', {
+        'form':      form,
+        'sugerencia': sugerencia if 'sugerencia' in locals() else None,
+    })
+
+
+@solo_admin
+def responder_solicitud(request, pk):
+    solicitud = get_object_or_404(SolicitudInventario, pk=pk, estado='pendiente')
+
+    if request.method == 'POST':
+        form = ResponderSolicitudForm(request.POST)
+        if form.is_valid():
+            decision    = form.cleaned_data['decision']
+            observacion = form.cleaned_data['observacion']
+
+            solicitud.estado         = decision
+            solicitud.admin          = request.user
+            solicitud.observacion    = observacion
+            solicitud.fecha_respuesta = timezone.now()
+            solicitud.save()
+
+            # Si se aprueba: actualizar stock y registrar movimiento
+            if decision == 'aprobada':
+                producto = solicitud.producto
+                producto.stock_actual += solicitud.cantidad_solicitada
+                producto.save()
+
+                MovimientoInventario.objects.create(
+                    producto=producto,
+                    tipo='entrada',
+                    cantidad=solicitud.cantidad_solicitada,
+                    motivo=f'Solicitud #{solicitud.id} aprobada por {request.user.username}',
+                    usuario=request.user,
+                )
+                messages.success(request, f'Solicitud aprobada. Stock de "{producto.nombre}" actualizado.')
+            else:
+                messages.warning(request, 'Solicitud rechazada.')
+
+            return redirect('inventario:lista_solicitudes')
+    else:
+        form = ResponderSolicitudForm()
+
+    return render(request, 'inventario/responder_solicitud.html', {
+        'solicitud': solicitud,
+        'form':      form,
+    })

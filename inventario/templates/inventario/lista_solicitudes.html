@@ -1,0 +1,63 @@
+{% extends 'inventario/base.html' %}
+{% block titulo %}Solicitudes — Inversiones Ramón{% endblock %}
+{% block topbar_titulo %}Solicitudes de inventario{% endblock %}
+
+{% block topbar_acciones %}
+  {% if user.rol == 'empleado' %}
+  <a href="{% url 'inventario:crear_solicitud' %}" class="btn btn-sm btn-primary">
+    <i class="bi bi-plus-lg me-1"></i>Nueva solicitud
+  </a>
+  {% endif %}
+{% endblock %}
+
+{% block contenido %}
+<div class="card">
+  <div class="card-body p-0">
+    {% if solicitudes %}
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>#</th>
+          {% if user.rol == 'admin' %}<th>Empleado</th>{% endif %}
+          <th>Producto</th>
+          <th>Cantidad</th>
+          <th>Fecha</th>
+          <th>Estado</th>
+          <th>Observación</th>
+          {% if user.rol == 'admin' %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in solicitudes %}
+        <tr>
+          <td>{{ s.id }}</td>
+          {% if user.rol == 'admin' %}<td>{{ s.empleado.username }}</td>{% endif %}
+          <td>{{ s.producto.nombre }}</td>
+          <td>{{ s.cantidad_solicitada }}</td>
+          <td>{{ s.fecha_solicitud|date:"d/m/Y H:i" }}</td>
+          <td>
+            <span class="badge badge-{{ s.estado }}">{{ s.get_estado_display }}</span>
+          </td>
+          <td>{{ s.observacion|default:"—"|truncatechars:40 }}</td>
+          {% if user.rol == 'admin' %}
+          <td>
+            {% if s.estado == 'pendiente' %}
+            <a href="{% url 'inventario:responder_solicitud' s.pk %}" class="btn btn-sm btn-primary">
+              Responder
+            </a>
+            {% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-send fs-1"></i>
+      <p class="mt-2">No hay solicitudes registradas.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

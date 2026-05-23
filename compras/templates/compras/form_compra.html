@@ -1,0 +1,204 @@
+{% extends 'core/base.html' %}
+{% block titulo %}Nueva orden de compra{% endblock %}
+{% block topbar_titulo %}Nueva orden de compra{% endblock %}
+
+{% block extra_css %}
+<style>
+  .formset-row {
+    background: #f9fafb; border: 1px solid #e5e7eb;
+    border-radius: 8px; padding: 1rem; margin-bottom: .75rem; position: relative;
+  }
+  .btn-remove-row { position: absolute; top: .5rem; right: .5rem; }
+  .subtotal-row { font-size: .8rem; color: #6b7280; margin-top: .25rem; }
+  .sugerencia-card {
+    background: #eff6ff; border: 1px solid #bfdbfe;
+    border-radius: 8px; padding: .75rem 1rem; margin-bottom: 1rem;
+  }
+</style>
+{% endblock %}
+
+{% block contenido %}
+<form method="post" id="compra-form">
+{% csrf_token %}
+<div class="row g-3">
+
+  <!-- Datos generales -->
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">Datos de la orden</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">{{ form.proveedor.label }}</label>
+          {{ form.proveedor }}
+          {% if form.proveedor.errors %}<div class="text-danger small">{{ form.proveedor.errors }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">{{ form.fecha_estimada.label }}</label>
+          {{ form.fecha_estimada }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">{{ form.observacion.label }}</label>
+          {{ form.observacion }}
+        </div>
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Sugerencias de abastecimiento -->
+    {% if sugerencias %}
+    <div class="sugerencia-card mt-3">
+      <div class="fw-semibold mb-2" style="font-size:.85rem">
+        <i class="bi bi-lightbulb me-1 text-warning"></i>Productos sugeridos de este proveedor
+      </div>
+      {% for p in sugerencias %}
+      <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+        <div>
+          <div style="font-size:.8rem; font-weight:600">{{ p.nombre }}</div>
+          <div class="text-muted" style="font-size:.72rem">
+            Stock: {{ p.stock_actual }} | Sugerido: {{ p.cantidad_sugerida_pedido }}
+            {% if p.en_tendencia %}<span class="badge bg-warning text-dark ms-1">EN TENDENCIA</span>{% endif %}
+          </div>
+        </div>
+        <button type="button" class="btn btn-xs btn-outline-primary btn-agregar-sugerido"
+                data-nombre="{{ p.nombre }}" data-id="{{ p.pk }}"
+                data-cantidad="{{ p.cantidad_sugerida_pedido }}"
+                data-precio="{{ p.precio_compra }}"
+                style="font-size:.72rem; padding:.2rem .5rem">
+          + Agregar
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Productos de la orden -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        Productos
+        <button type="button" class="btn btn-sm btn-outline-primary" id="btn-agregar">
+          <i class="bi bi-plus-lg me-1"></i>Agregar producto
+        </button>
+      </div>
+      <div class="card-body">
+        {{ formset.management_form }}
+        <div id="formset-container">
+          {% for f in formset %}
+          <div class="formset-row">
+            {{ f.id }}
+            <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row"
+                    onclick="eliminarFila(this)">
+              <i class="bi bi-trash"></i>
+            </button>
+            <div class="row g-2">
+              <div class="col-md-5">
+                <label class="form-label small fw-semibold">Producto</label>
+                {{ f.producto }}
+                {% if f.producto.errors %}<div class="text-danger small">{{ f.producto.errors }}</div>{% endif %}
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-semibold">Cantidad</label>
+                {{ f.cantidad_pedida }}
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Precio unit. (Bs.)</label>
+                {{ f.precio_unitario }}
+              </div>
+            </div>
+            <div class="subtotal-row text-end">Subtotal: <strong class="subtotal-val">Bs. 0.00</strong></div>
+            {% if f.DELETE %}<div style="display:none">{{ f.DELETE }}</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <div class="mt-3 pt-3 border-top d-flex justify-content-between align-items-center">
+          <span class="text-muted small">* Los precios son referenciales. El Admin confirma al recibir.</span>
+          <div>
+            <span class="text-muted me-2">Total estimado:</span>
+            <strong class="fs-5" id="total-estimado">Bs. 0.00</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-3 justify-content-end">
+      <a href="{% url 'compras:lista_compras' %}" class="btn btn-outline-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-send me-1"></i>Enviar para aprobación
+      </button>
+    </div>
+  </div>
+
+</div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let formCount = parseInt(document.getElementById('id_form-TOTAL_FORMS').value);
+
+function calcularSubtotales() {
+  let total = 0;
+  document.querySelectorAll('#formset-container .formset-row').forEach(row => {
+    if (row.style.display === 'none') return;
+    const cant   = parseFloat(row.querySelector('.cant-field')?.value)  || 0;
+    const precio = parseFloat(row.querySelector('.precio-field')?.value) || 0;
+    const sub    = cant * precio;
+    total += sub;
+    const el = row.querySelector('.subtotal-val');
+    if (el) el.textContent = 'Bs. ' + sub.toFixed(2);
+  });
+  document.getElementById('total-estimado').textContent = 'Bs. ' + total.toFixed(2);
+}
+
+document.getElementById('formset-container').addEventListener('input', calcularSubtotales);
+
+function clonarFila(datos = {}) {
+  const container  = document.getElementById('formset-container');
+  const primeraFila = container.querySelector('.formset-row');
+  const nuevaFila  = primeraFila.cloneNode(true);
+  nuevaFila.querySelectorAll('input, select').forEach(el => {
+    el.name = el.name.replace(/-\d+-/, `-${formCount}-`);
+    el.id   = el.id.replace(/-\d+-/, `-${formCount}-`);
+    if (el.tagName === 'INPUT') el.value = datos[el.name?.split('-').pop()] || '';
+    if (el.tagName === 'SELECT') el.selectedIndex = 0;
+  });
+  if (datos.producto_id) {
+    const sel = nuevaFila.querySelector('select.producto-select');
+    if (sel) sel.value = datos.producto_id;
+  }
+  nuevaFila.querySelector('.subtotal-val').textContent = 'Bs. 0.00';
+  container.appendChild(nuevaFila);
+  formCount++;
+  document.getElementById('id_form-TOTAL_FORMS').value = formCount;
+  calcularSubtotales();
+}
+
+document.getElementById('btn-agregar').addEventListener('click', () => clonarFila());
+
+function eliminarFila(btn) {
+  const fila = btn.closest('.formset-row');
+  const del  = fila.querySelector('[name$="-DELETE"]');
+  if (del) { del.checked = true; fila.style.display = 'none'; }
+  else fila.remove();
+  calcularSubtotales();
+}
+
+// Botón "Agregar" en sugerencias
+document.querySelectorAll('.btn-agregar-sugerido').forEach(btn => {
+  btn.addEventListener('click', () => {
+    clonarFila({
+      producto_id:     btn.dataset.id,
+      cantidad_pedida: btn.dataset.cantidad,
+      precio_unitario: btn.dataset.precio,
+    });
+    btn.textContent = '✓ Agregado';
+    btn.disabled = true;
+  });
+});
+
+calcularSubtotales();
+</script>
+{% endblock %}

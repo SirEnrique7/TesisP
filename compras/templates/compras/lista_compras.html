@@ -1,0 +1,113 @@
+{% extends 'core/base.html' %}
+{% block titulo %}Compras{% endblock %}
+{% block topbar_titulo %}Órdenes de compra{% endblock %}
+
+{% block topbar_acciones %}
+<a href="{% url 'compras:crear_compra' %}" class="btn btn-sm btn-primary">
+  <i class="bi bi-plus-lg me-1"></i>Nueva orden
+</a>
+{% endblock %}
+
+{% block contenido %}
+
+<!-- Tabs de estado -->
+<div class="mb-3 d-flex gap-2 flex-wrap">
+  {% for val, label in estados %}
+  <a href="?estado={{ val }}" class="btn btn-sm
+    {% if estado == val %}
+      {% if val == 'pendiente' %}btn-warning
+      {% elif val == 'aprobada' %}btn-success
+      {% elif val == 'recibida' %}btn-primary
+      {% elif val == 'rechazada' or val == 'cancelada' %}btn-danger
+      {% else %}btn-dark{% endif %}
+    {% else %}btn-outline-secondary{% endif %}">
+    {{ label }}
+    {% if val == 'pendiente' and pendientes > 0 %}
+      <span class="badge bg-danger ms-1">{{ pendientes }}</span>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Buscador -->
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="d-flex gap-2">
+      <input type="hidden" name="estado" value="{{ estado }}">
+      <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm"
+             placeholder="Buscar por referencia o proveedor...">
+      <button type="submit" class="btn btn-sm btn-outline-secondary">Buscar</button>
+    </form>
+  </div>
+</div>
+
+<!-- Tabla -->
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Referencia</th>
+          <th>Proveedor</th>
+          {% if user.es_admin %}<th>Creada por</th>{% endif %}
+          <th>F. creación</th>
+          <th>F. estimada</th>
+          <th>Total (Bs.)</th>
+          <th>Pago</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in compras %}
+        <tr>
+          <td><code>{{ c.numero_referencia }}</code></td>
+          <td>{{ c.proveedor.nombre }}</td>
+          {% if user.es_admin %}<td>{{ c.creada_por.get_nombre_completo|default:"—" }}</td>{% endif %}
+          <td>{{ c.fecha_creacion|date:"d/m/Y" }}</td>
+          <td>{{ c.fecha_estimada|date:"d/m/Y"|default:"—" }}</td>
+          <td>
+            {% if user.es_admin %}Bs. {{ c.total|floatformat:2 }}
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td>
+            {% if c.estado == 'recibida' %}
+              {% if c.modalidad_pago == 'credito' %}
+                {% if c.pagado %}<span class="badge bg-success">Crédito saldado</span>
+                {% else %}<span class="badge bg-warning text-dark">Crédito pendiente</span>{% endif %}
+              {% elif c.modalidad_pago == 'contado' %}
+                <span class="badge bg-success">Contado</span>
+              {% endif %}
+            {% else %}<span class="text-muted small">—</span>{% endif %}
+          </td>
+          <td>
+            {% if c.estado == 'pendiente' %}<span class="badge bg-warning text-dark">Pendiente</span>
+            {% elif c.estado == 'aprobada' %}<span class="badge bg-success">Aprobada</span>
+            {% elif c.estado == 'recibida' %}<span class="badge bg-primary">Recibida</span>
+            {% elif c.estado == 'rechazada' %}<span class="badge bg-danger">Rechazada</span>
+            {% elif c.estado == 'cancelada' %}<span class="badge bg-secondary">Cancelada</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'compras:detalle_compra' c.pk %}"
+               class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a>
+            {% if c.estado == 'pendiente' and user.es_admin %}
+            <a href="{% url 'compras:aprobar_compra' c.pk %}"
+               class="btn btn-sm btn-warning"><i class="bi bi-check-lg"></i></a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="9" class="text-center text-muted py-5">
+            <i class="bi bi-cart3 fs-1 d-block mb-2"></i>
+            No hay órdenes de compra.
+            <a href="{% url 'compras:crear_compra' %}" class="btn btn-primary btn-sm ms-2">Crear primera orden</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

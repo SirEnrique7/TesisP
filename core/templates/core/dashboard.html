@@ -1,0 +1,126 @@
+{% extends 'core/base.html' %}
+{% block titulo %}Dashboard — Inversiones Ramón{% endblock %}
+{% block topbar_titulo %}Dashboard{% endblock %}
+
+{% block contenido %}
+
+<!-- Fila de stats -->
+<div class="row g-3 mb-4">
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon azul"><i class="bi bi-box-seam"></i></div>
+      <div>
+        <div class="stat-num">{{ total_productos }}</div>
+        <div class="stat-label">Productos activos</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon rojo"><i class="bi bi-exclamation-triangle"></i></div>
+      <div>
+        <div class="stat-num">{{ productos_bajo|length }}</div>
+        <div class="stat-label">Stock bajo</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon naranja"><i class="bi bi-cart3"></i></div>
+      <div>
+        <div class="stat-num">{{ compras_pendientes }}</div>
+        <div class="stat-label">Compras por aprobar</div>
+      </div>
+    </div>
+  </div>
+
+  {% if puede_ver_financiero %}
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon verde"><i class="bi bi-cash-stack"></i></div>
+      <div>
+        <div class="stat-num">Bs {{ ventas_hoy|floatformat:2 }}</div>
+        <div class="stat-label">Ventas hoy</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+{% if puede_ver_financiero %}
+<!-- Fila financiera (solo admin) -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="stat-card">
+      <div class="stat-icon morado"><i class="bi bi-people"></i></div>
+      <div>
+        <div class="stat-num">Bs {{ cuentas_por_cobrar|floatformat:2 }}</div>
+        <div class="stat-label">Por cobrar (clientes)</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card">
+      <div class="stat-icon rojo"><i class="bi bi-credit-card"></i></div>
+      <div>
+        <div class="stat-num">Bs {{ cuentas_por_pagar|floatformat:2 }}</div>
+        <div class="stat-label">Por pagar (proveedores)</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card">
+      <div class="stat-icon rojo"><i class="bi bi-alarm"></i></div>
+      <div>
+        <div class="stat-num">{{ creditos_vencidos }}</div>
+        <div class="stat-label">Créditos vencidos</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Stock bajo -->
+{% if productos_bajo %}
+<div class="card">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="bi bi-exclamation-triangle text-danger"></i>
+    Productos con stock bajo
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Producto</th>
+          <th>Stock actual</th>
+          <th>Mínimo</th>
+          <th>Sugerido pedir</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in productos_bajo %}
+        <tr>
+          <td><code>{{ p.codigo }}</code></td>
+          <td>{{ p.nombre }}</td>
+          <td><span class="badge bg-danger">{{ p.stock_actual }}</span></td>
+          <td>{{ p.stock_minimo }}</td>
+          <td><strong>{{ p.cantidad_sugerida_pedido }}</strong> unid.</td>
+          <td>
+            <a href="{% url 'compras:crear_compra' %}?producto={{ p.pk }}"
+               class="btn btn-sm btn-primary">Crear orden</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends 'inventario/base.html' %}
+{% block titulo %}Nueva solicitud — Inversiones Ramón{% endblock %}
+{% block topbar_titulo %}Nueva solicitud de inventario{% endblock %}
+
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+
+    {% if sugerencia %}
+    <div class="alert alert-info mb-3">
+      <i class="bi bi-lightbulb me-1"></i>
+      Basado en las ventas recientes, se sugiere solicitar <strong>{{ sugerencia }} unidades</strong>.
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">Solicitar producto al administrador</div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">{{ form.producto.label }}</label>
+            {{ form.producto }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">{{ form.cantidad_solicitada.label }}</label>
+            {{ form.cantidad_solicitada }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">{{ form.observacion.label }}</label>
+            {{ form.observacion }}
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Enviar solicitud</button>
+            <a href="{% url 'inventario:lista_solicitudes' %}" class="btn btn-outline-secondary">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-rellenar cantidad sugerida al cambiar de producto
+document.getElementById('id_producto').addEventListener('change', function() {
+  const pid = this.value;
+  if (!pid) return;
+  fetch(`/inventario/api/sugerencia/?producto=${pid}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.sugerencia) {
+        document.getElementById('id_cantidad_solicitada').value = d.sugerencia;
+      }
+    }).catch(() => {});
+});
+</script>
+{% endblock %}

@@ -1,0 +1,275 @@
+{% extends 'core/base.html' %}
+{% block titulo %}Nueva venta{% endblock %}
+{% block topbar_titulo %}Registrar venta{% endblock %}
+
+{% block extra_css %}
+<style>
+  .formset-row {
+    background:#f9fafb; border:1px solid #e5e7eb;
+    border-radius:8px; padding:1rem; margin-bottom:.6rem; position:relative;
+  }
+  .btn-remove-row { position:absolute; top:.5rem; right:.5rem; }
+  #cliente-wrapper, #fecha-pago-wrapper, #ref-pago-wrapper { display:none; }
+  .stock-badge { font-size:.72rem; margin-top:.2rem; }
+  .tasa-info { background:#f0fdf4; border:1px solid #bbf7d0;
+               border-radius:8px; padding:.6rem 1rem; font-size:.82rem; }
+</style>
+{% endblock %}
+
+{% block contenido %}
+<form method="post" id="venta-form">
+{% csrf_token %}
+<div class="row g-3">
+
+  <!-- Datos de la venta -->
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">Datos de la venta</div>
+      <div class="card-body">
+
+        {% if tasa_hoy %}
+        <div class="tasa-info mb-3">
+          <i class="bi bi-currency-exchange me-1"></i>
+          Tasa BCV hoy: <strong>Bs. {{ tasa_hoy.tasa_bs_usd }}</strong> / USD
+        </div>
+        {% endif %}
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">{{ form.metodo_pago.label }}</label>
+          {{ form.metodo_pago }}
+        </div>
+
+        <div class="mb-3" id="ref-pago-wrapper">
+          <label class="form-label fw-semibold">{{ form.referencia_pago.label }}
+            <span class="text-danger">*</span>
+          </label>
+          {{ form.referencia_pago }}
+          {% if form.referencia_pago.errors %}
+          <div class="text-danger small">{{ form.referencia_pago.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="mb-3" id="cliente-wrapper">
+          <label class="form-label fw-semibold">{{ form.cliente.label }}
+            <span class="text-danger">*</span>
+          </label>
+          {{ form.cliente }}
+          <a href="{% url 'core:crear_cliente' %}" target="_blank"
+             class="btn btn-link btn-sm p-0 mt-1">
+            <i class="bi bi-person-plus me-1"></i>Registrar nuevo cliente
+          </a>
+          {% if form.cliente.errors %}
+          <div class="text-danger small">{{ form.cliente.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="mb-3" id="fecha-pago-wrapper">
+          <label class="form-label fw-semibold">{{ form.fecha_estimada_pago.label }}
+            <span class="text-danger">*</span>
+          </label>
+          {{ form.fecha_estimada_pago }}
+          {% if form.fecha_estimada_pago.errors %}
+          <div class="text-danger small">{{ form.fecha_estimada_pago.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">{{ form.observacion.label }}</label>
+          {{ form.observacion }}
+        </div>
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Productos -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        Productos
+        <button type="button" class="btn btn-sm btn-outline-primary" id="btn-agregar">
+          <i class="bi bi-plus-lg me-1"></i>Agregar producto
+        </button>
+      </div>
+      <div class="card-body">
+        {{ formset.management_form }}
+        <div id="formset-container">
+          {% for f in formset %}
+          <div class="formset-row">
+            {{ f.id }}
+            <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row"
+                    onclick="eliminarFila(this)">
+              <i class="bi bi-trash"></i>
+            </button>
+            <div class="row g-2">
+              <div class="col-md-5">
+                <label class="form-label small fw-semibold">Producto</label>
+                {{ f.producto }}
+                <div class="stock-badge text-muted" id="stock-info-{{ forloop.counter0 }}"></div>
+                {% if f.producto.errors %}
+                <div class="text-danger small">{{ f.producto.errors }}</div>
+                {% endif %}
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-semibold">Cantidad</label>
+                {{ f.cantidad }}
+                {% if f.cantidad.errors %}
+                <div class="text-danger small">{{ f.cantidad.errors }}</div>
+                {% endif %}
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">Precio unit. (Bs.)</label>
+                {{ f.precio_unitario }}
+              </div>
+            </div>
+            <div class="d-flex justify-content-end mt-1">
+              <small class="text-muted me-1">Subtotal:</small>
+              <small class="fw-bold subtotal-val">Bs. 0.00</small>
+            </div>
+            {% if f.DELETE %}<div style="display:none">{{ f.DELETE }}</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Resumen de totales -->
+        <div class="mt-3 pt-3 border-top">
+          <div class="row justify-content-end">
+            <div class="col-auto">
+              <table style="font-size:.875rem">
+                <tr>
+                  <td class="text-muted pe-3">Subtotal:</td>
+                  <td class="text-end fw-semibold" id="resumen-subtotal">Bs. 0.00</td>
+                </tr>
+                <tr>
+                  <td class="text-muted pe-3">IVA (16%):</td>
+                  <td class="text-end" id="resumen-iva">Bs. 0.00</td>
+                </tr>
+                <tr class="border-top">
+                  <td class="fw-bold pe-3 pt-1">Total:</td>
+                  <td class="text-end fw-bold fs-5 pt-1" id="resumen-total">Bs. 0.00</td>
+                </tr>
+                {% if tasa_hoy %}
+                <tr>
+                  <td class="text-muted pe-3" style="font-size:.75rem">USD equiv.:</td>
+                  <td class="text-end text-muted" style="font-size:.75rem" id="resumen-usd">$ 0.00</td>
+                </tr>
+                {% endif %}
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-3 justify-content-end">
+      <a href="{% url 'ventas:lista_ventas' %}" class="btn btn-outline-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-check-circle me-1"></i>Registrar venta
+      </button>
+    </div>
+  </div>
+
+</div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const TASA = {{ tasa_hoy.tasa_bs_usd|default:0 }};
+let formCount = parseInt(document.getElementById('id_form-TOTAL_FORMS').value);
+
+// ── Mostrar campos según método de pago ──
+const metodoPago = document.getElementById('id_metodo_pago');
+function toggleCampos() {
+  const esCredito = metodoPago.value === 'credito';
+  const esPago    = ['punto','pago_movil','biopago','mixto'].includes(metodoPago.value);
+  document.getElementById('cliente-wrapper').style.display     = esCredito ? 'block' : 'none';
+  document.getElementById('fecha-pago-wrapper').style.display  = esCredito ? 'block' : 'none';
+  document.getElementById('ref-pago-wrapper').style.display    = esPago    ? 'block' : 'none';
+}
+metodoPago.addEventListener('change', toggleCampos);
+toggleCampos();
+
+// ── Calcular totales ──
+function calcularTotales() {
+  let subtotal = 0;
+  document.querySelectorAll('#formset-container .formset-row').forEach(row => {
+    if (row.style.display === 'none') return;
+    const cant   = parseFloat(row.querySelector('.cant-field')?.value)   || 0;
+    const precio = parseFloat(row.querySelector('.precio-field')?.value) || 0;
+    const sub    = cant * precio;
+    subtotal    += sub;
+    const el = row.querySelector('.subtotal-val');
+    if (el) el.textContent = 'Bs. ' + sub.toFixed(2);
+  });
+  const iva   = subtotal * 0.16;
+  const total = subtotal + iva;
+  document.getElementById('resumen-subtotal').textContent = 'Bs. ' + subtotal.toFixed(2);
+  document.getElementById('resumen-iva').textContent      = 'Bs. ' + iva.toFixed(2);
+  document.getElementById('resumen-total').textContent    = 'Bs. ' + total.toFixed(2);
+  const usdEl = document.getElementById('resumen-usd');
+  if (usdEl && TASA > 0) usdEl.textContent = '$ ' + (total / TASA).toFixed(2);
+}
+document.getElementById('formset-container').addEventListener('input', calcularTotales);
+
+// ── Cargar stock al seleccionar producto ──
+function bindStockInfo(row, idx) {
+  const sel = row.querySelector('.producto-select');
+  const inf = row.querySelector(`#stock-info-${idx}`) || row.querySelector('.stock-badge');
+  const priceField = row.querySelector('.precio-field');
+
+  sel?.addEventListener('change', async () => {
+    const pid = sel.value;
+    if (!pid) { if (inf) inf.textContent = ''; return; }
+    try {
+      const r = await fetch(`{% url 'ventas:api_stock' %}?producto=${pid}`);
+      const d = await r.json();
+      if (inf) {
+        inf.innerHTML =
+          `Stock: <strong>${d.stock}</strong>` +
+          (d.en_tendencia ? ' <span class="badge bg-warning text-dark">EN TENDENCIA</span>' : '');
+        inf.style.color = d.stock <= 5 ? '#dc2626' : '#6b7280';
+      }
+      if (priceField && !priceField.value) priceField.value = d.precio_venta;
+    } catch {}
+    calcularTotales();
+  });
+}
+
+document.querySelectorAll('.formset-row').forEach((row, i) => bindStockInfo(row, i));
+
+// ── Agregar fila ──
+document.getElementById('btn-agregar').addEventListener('click', () => {
+  const container  = document.getElementById('formset-container');
+  const primera    = container.querySelector('.formset-row');
+  const nueva      = primera.cloneNode(true);
+  nueva.querySelectorAll('input, select').forEach(el => {
+    el.name = el.name.replace(/-\d+-/, `-${formCount}-`);
+    el.id   = el.id.replace(/-\d+-/, `-${formCount}-`);
+    if (el.tagName === 'INPUT') el.value = '';
+    if (el.tagName === 'SELECT') el.selectedIndex = 0;
+  });
+  const badge = nueva.querySelector('.stock-badge');
+  if (badge) { badge.id = `stock-info-${formCount}`; badge.textContent = ''; }
+  nueva.querySelector('.subtotal-val').textContent = 'Bs. 0.00';
+  container.appendChild(nueva);
+  bindStockInfo(nueva, formCount);
+  formCount++;
+  document.getElementById('id_form-TOTAL_FORMS').value = formCount;
+  calcularTotales();
+});
+
+function eliminarFila(btn) {
+  const fila = btn.closest('.formset-row');
+  const del  = fila.querySelector('[name$="-DELETE"]');
+  if (del) { del.checked = true; fila.style.display = 'none'; }
+  else fila.remove();
+  calcularTotales();
+}
+
+calcularTotales();
+</script>
+{% endblock %}

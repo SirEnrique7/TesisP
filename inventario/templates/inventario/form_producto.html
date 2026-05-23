@@ -1,0 +1,82 @@
+{% extends 'inventario/base.html' %}
+{% block titulo %}{{ titulo }} — Inversiones Ramón{% endblock %}
+{% block topbar_titulo %}{{ titulo }}{% endblock %}
+
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">{{ titulo }}</div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold">{{ form.nombre.label }}</label>
+              {{ form.nombre }}
+              {% if form.nombre.errors %}<div class="text-danger small">{{ form.nombre.errors }}</div>{% endif %}
+            </div>
+
+            <div class="col-12">
+              <label class="form-label fw-semibold">{{ form.descripcion.label }}</label>
+              {{ form.descripcion }}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">{{ form.categoria.label }}</label>
+              {{ form.categoria }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">{{ form.proveedor.label }}</label>
+              {{ form.proveedor }}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">{{ form.precio_compra.label }}</label>
+              {{ form.precio_compra }}
+              {% if form.precio_compra.errors %}<div class="text-danger small">{{ form.precio_compra.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">{{ form.precio_venta.label }}</label>
+              {{ form.precio_venta }}
+              {% if form.precio_venta.errors %}<div class="text-danger small">{{ form.precio_venta.errors }}</div>{% endif %}
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">{{ form.stock_actual.label }}</label>
+              {{ form.stock_actual }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">{{ form.stock_minimo.label }}</label>
+              {{ form.stock_minimo }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">{{ form.dias_cobertura.label }}
+                <i class="bi bi-info-circle text-muted" title="Días que debe durar el stock para el cálculo de pedidos"></i>
+              </label>
+              {{ form.dias_cobertura }}
+            </div>
+
+            <div class="col-12">
+              <div class="form-check">
+                {{ form.activo }}
+                <label class="form-check-label">{{ form.activo.label }}</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-primary">{{ accion }}</button>
+            <a href="{% url 'inventario:lista_productos' %}" class="btn btn-outline-secondary">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

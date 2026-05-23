@@ -1,0 +1,96 @@
+{% extends 'core/base.html' %}
+{% block titulo %}Aprobar orden {{ compra.numero_referencia }}{% endblock %}
+{% block topbar_titulo %}Aprobar / Rechazar orden{% endblock %}
+
+{% block contenido %}
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header">Resumen de la solicitud</div>
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-6"><div class="text-muted small">Referencia</div><code>{{ compra.numero_referencia }}</code></div>
+          <div class="col-6"><div class="text-muted small">Proveedor</div><strong>{{ compra.proveedor.nombre }}</strong></div>
+          <div class="col-6"><div class="text-muted small">Creada por</div>{{ compra.creada_por.get_nombre_completo }}</div>
+          <div class="col-6"><div class="text-muted small">F. creación</div>{{ compra.fecha_creacion|date:"d/m/Y H:i" }}</div>
+          <div class="col-6"><div class="text-muted small">F. estimada entrega</div>{{ compra.fecha_estimada|date:"d/m/Y"|default:"No indicada" }}</div>
+          <div class="col-6"><div class="text-muted small">Total estimado</div><strong>Bs. {{ compra.total|floatformat:2 }}</strong></div>
+          {% if compra.observacion %}
+          <div class="col-12"><div class="text-muted small">Observaciones</div>{{ compra.observacion }}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Tu decisión</div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            {% for radio in form.decision %}
+            <div class="form-check mb-2">
+              {{ radio.tag }}
+              <label class="form-check-label" for="{{ radio.id_for_label }}">
+                {{ radio.choice_label }}
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="mb-3" id="motivo-wrapper" style="display:none">
+            <label class="form-label fw-semibold">{{ form.motivo_rechazo.label }}</label>
+            {{ form.motivo_rechazo }}
+            {% if form.motivo_rechazo.errors %}
+            <div class="text-danger small">{{ form.motivo_rechazo.errors }}</div>
+            {% endif %}
+          </div>
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Confirmar</button>
+            <a href="{% url 'compras:detalle_compra' compra.pk %}"
+               class="btn btn-outline-secondary">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">Productos solicitados</div>
+      <div class="card-body p-0">
+        <table class="table mb-0">
+          <thead><tr><th>Producto</th><th class="text-center">Cantidad</th><th class="text-end">Precio unit.</th><th class="text-end">Subtotal</th></tr></thead>
+          <tbody>
+            {% for d in detalles %}
+            <tr>
+              <td>{{ d.producto.nombre }}<div class="text-muted" style="font-size:.75rem"><code>{{ d.producto.codigo }}</code> | Stock actual: {{ d.producto.stock_actual }}</div></td>
+              <td class="text-center">{{ d.cantidad_pedida }}</td>
+              <td class="text-end">Bs. {{ d.precio_unitario|floatformat:2 }}</td>
+              <td class="text-end">Bs. {{ d.subtotal|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr><td colspan="3" class="text-end fw-bold">Total estimado:</td>
+            <td class="text-end fw-bold">Bs. {{ compra.total|floatformat:2 }}</td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('input[name="decision"]').forEach(r => {
+  r.addEventListener('change', () => {
+    document.getElementById('motivo-wrapper').style.display =
+      r.value === 'rechazada' ? 'block' : 'none';
+  });
+});
+</script>
+{% endblock %}
