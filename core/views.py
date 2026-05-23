@@ -81,7 +81,8 @@ def vista_logout(request):
 def dashboard(request):
     from inventario.models import Producto
     from compras.models import Compra
-    from ventas.models import Venta, CuentaPorCobrar
+    from ventas.models import Venta
+    from core.models_bimonetario import CuentaPorCobrar
 
     tasa_hoy = TasaCambio.tasa_vigente()
 
@@ -100,7 +101,7 @@ def dashboard(request):
 
     # Stats exclusivas del admin
     if request.user.es_admin():
-        from ventas.models import CuentaPorCobrar, CuentaPorPagar
+        from core.models_bimonetario import CuentaPorCobrar, CuentaPorPagar
         from django.db.models import Sum
         from datetime import date
 

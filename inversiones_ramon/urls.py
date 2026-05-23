@@ -7,13 +7,11 @@ from django.contrib import admin
 from django.urls import path, include
 from django.shortcuts import redirect
 
+
 urlpatterns = [
 
     # Admin de Django (solo para superusuario en desarrollo)
     path('django-admin/', admin.site.urls),
-
-    # Redirigir raíz al dashboard
-    path('', lambda request: redirect('core:dashboard'), name='home'),
 
     # ── Módulo Core (auth + dashboard + usuarios + cuentas) ──
     path('', include('core.urls_core', namespace='core')),

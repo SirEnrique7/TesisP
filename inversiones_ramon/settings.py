@@ -113,7 +113,7 @@ DATABASES = {
 AUTH_USER_MODEL = 'core.Usuario'   # modelo de usuario personalizado
 
 LOGIN_URL           = '/login/'
-LOGIN_REDIRECT_URL  = '/'
+LOGIN_REDIRECT_URL  = '/login/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 # Token de reset de contraseña: 15 minutos

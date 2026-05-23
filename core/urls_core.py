@@ -1,17 +1,29 @@
 from django.urls import path
+from django.shortcuts import redirect
 from . import views as views_core
 from . import views_bimonetario as vbm
 
 app_name = 'core'
 
+
+def root_redirect(request):
+    """Raíz: si hay sesión va al dashboard, si no al login."""
+    if request.user.is_authenticated:
+        return redirect('core:dashboard')
+    return redirect('core:login')
+
+
 urlpatterns = [
+
+    # ── Raíz inteligente ──
+    path('', root_redirect, name='home'),
 
     # ── Auth ──
     path('login/',   views_core.vista_login,  name='login'),
     path('logout/',  views_core.vista_logout, name='logout'),
 
-    # ── Dashboard ──
-    path('', views_core.dashboard, name='dashboard'),
+    # ── Dashboard (URL propia para evitar colisión con raíz) ──
+    path('inicio/', views_core.dashboard, name='dashboard'),
 
     # ── Usuarios ──
     path('usuarios/',                    views_core.lista_usuarios,    name='lista_usuarios'),
