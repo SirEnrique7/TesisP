@@ -9,7 +9,7 @@
     border-radius:8px; padding:1rem; margin-bottom:.6rem; position:relative;
   }
   .btn-remove-row { position:absolute; top:.5rem; right:.5rem; }
-  #cliente-wrapper, #fecha-pago-wrapper, #ref-pago-wrapper { display:none; }
+  #cliente-wrapper, #fecha-pago-wrapper { display:none; }
   .stock-badge { font-size:.72rem; margin-top:.2rem; }
   .tasa-info { background:#f0fdf4; border:1px solid #bbf7d0;
                border-radius:8px; padding:.6rem 1rem; font-size:.82rem; }
@@ -37,6 +37,9 @@
         <div class="mb-3">
           <label class="form-label fw-semibold">{{ form.metodo_pago.label }}</label>
           {{ form.metodo_pago }}
+          {% if form.metodo_pago.errors %}
+          <div class="text-danger small">{{ form.metodo_pago.errors }}</div>
+          {% endif %}
         </div>
 
         <div class="mb-3" id="ref-pago-wrapper">
@@ -96,9 +99,14 @@
       </div>
       <div class="card-body">
         {{ formset.management_form }}
+
+        {% if formset.non_form_errors %}
+        <div class="alert alert-danger">{{ formset.non_form_errors }}</div>
+        {% endif %}
+
         <div id="formset-container">
           {% for f in formset %}
-          <div class="formset-row">
+          <div class="formset-row" {% if f.instance.pk == None and not forloop.first %}style="display:none"{% endif %}>
             {{ f.id }}
             <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row"
                     onclick="eliminarFila(this)">
@@ -108,7 +116,7 @@
               <div class="col-md-5">
                 <label class="form-label small fw-semibold">Producto</label>
                 {{ f.producto }}
-                <div class="stock-badge text-muted" id="stock-info-{{ forloop.counter0 }}"></div>
+                <div class="stock-badge text-muted"></div>
                 {% if f.producto.errors %}
                 <div class="text-danger small">{{ f.producto.errors }}</div>
                 {% endif %}
@@ -123,6 +131,9 @@
               <div class="col-md-4">
                 <label class="form-label small fw-semibold">Precio unit. (Bs.)</label>
                 {{ f.precio_unitario }}
+                {% if f.precio_unitario.errors %}
+                <div class="text-danger small">{{ f.precio_unitario.errors }}</div>
+                {% endif %}
               </div>
             </div>
             <div class="d-flex justify-content-end mt-1">
@@ -134,7 +145,7 @@
           {% endfor %}
         </div>
 
-        <!-- Resumen de totales -->
+        <!-- Resumen totales -->
         <div class="mt-3 pt-3 border-top">
           <div class="row justify-content-end">
             <div class="col-auto">
@@ -161,6 +172,7 @@
             </div>
           </div>
         </div>
+
       </div>
     </div>
 
@@ -179,97 +191,148 @@
 {% block extra_js %}
 <script>
 const TASA = {{ tasa_hoy.tasa_bs_usd|default:0 }};
-let formCount = parseInt(document.getElementById('id_form-TOTAL_FORMS').value);
 
-// ── Mostrar campos según método de pago ──
-const metodoPago = document.getElementById('id_metodo_pago');
+// ──────────────────────────────────────────────
+// Mostrar/ocultar campos según método de pago
+// ──────────────────────────────────────────────
 function toggleCampos() {
-  const esCredito = metodoPago.value === 'credito';
-  const esPago    = ['punto','pago_movil','biopago','mixto'].includes(metodoPago.value);
-  document.getElementById('cliente-wrapper').style.display     = esCredito ? 'block' : 'none';
-  document.getElementById('fecha-pago-wrapper').style.display  = esCredito ? 'block' : 'none';
-  document.getElementById('ref-pago-wrapper').style.display    = esPago    ? 'block' : 'none';
+  var v = document.getElementById('id_metodo_pago').value;
+  var esCredito = (v === 'credito');
+  var esPago    = (v === 'punto' || v === 'pago_movil' || v === 'biopago' || v === 'mixto');
+  document.getElementById('cliente-wrapper').style.display    = esCredito ? 'block' : 'none';
+  document.getElementById('fecha-pago-wrapper').style.display = esCredito ? 'block' : 'none';
+  // Referencia siempre visible excepto en crédito/fiado (paga después)
+  document.getElementById('ref-pago-wrapper').style.display   = esCredito ? 'none' : 'block';
 }
-metodoPago.addEventListener('change', toggleCampos);
-toggleCampos();
 
-// ── Calcular totales ──
+document.getElementById('id_metodo_pago').addEventListener('change', toggleCampos);
+
+// ──────────────────────────────────────────────
+// Calcular subtotal por fila y totales generales
+// ──────────────────────────────────────────────
+function calcularFila(row) {
+  var cant   = parseFloat(row.querySelector('.cant-field').value)   || 0;
+  var precio = parseFloat(row.querySelector('.precio-field').value) || 0;
+  var sub    = cant * precio;
+  row.querySelector('.subtotal-val').textContent = 'Bs. ' + sub.toFixed(2);
+  return sub;
+}
+
 function calcularTotales() {
-  let subtotal = 0;
-  document.querySelectorAll('#formset-container .formset-row').forEach(row => {
+  var subtotal = 0;
+  document.querySelectorAll('#formset-container .formset-row').forEach(function(row) {
     if (row.style.display === 'none') return;
-    const cant   = parseFloat(row.querySelector('.cant-field')?.value)   || 0;
-    const precio = parseFloat(row.querySelector('.precio-field')?.value) || 0;
-    const sub    = cant * precio;
-    subtotal    += sub;
-    const el = row.querySelector('.subtotal-val');
-    if (el) el.textContent = 'Bs. ' + sub.toFixed(2);
+    subtotal += calcularFila(row);
   });
-  const iva   = subtotal * 0.16;
-  const total = subtotal + iva;
+  var iva   = subtotal * 0.16;
+  var total = subtotal + iva;
   document.getElementById('resumen-subtotal').textContent = 'Bs. ' + subtotal.toFixed(2);
   document.getElementById('resumen-iva').textContent      = 'Bs. ' + iva.toFixed(2);
   document.getElementById('resumen-total').textContent    = 'Bs. ' + total.toFixed(2);
-  const usdEl = document.getElementById('resumen-usd');
+  var usdEl = document.getElementById('resumen-usd');
   if (usdEl && TASA > 0) usdEl.textContent = '$ ' + (total / TASA).toFixed(2);
 }
+
 document.getElementById('formset-container').addEventListener('input', calcularTotales);
 
-// ── Cargar stock al seleccionar producto ──
-function bindStockInfo(row, idx) {
-  const sel = row.querySelector('.producto-select');
-  const inf = row.querySelector(`#stock-info-${idx}`) || row.querySelector('.stock-badge');
-  const priceField = row.querySelector('.precio-field');
+// ──────────────────────────────────────────────
+// Autocompletar precio al elegir producto
+// ──────────────────────────────────────────────
+function bindFila(row) {
+  var sel        = row.querySelector('.producto-select');
+  var priceField = row.querySelector('.precio-field');
+  var badge      = row.querySelector('.stock-badge');
+  var apiUrl     = "{% url 'ventas:api_stock' %}";
 
-  sel?.addEventListener('change', async () => {
-    const pid = sel.value;
-    if (!pid) { if (inf) inf.textContent = ''; return; }
-    try {
-      const r = await fetch(`{% url 'ventas:api_stock' %}?producto=${pid}`);
-      const d = await r.json();
-      if (inf) {
-        inf.innerHTML =
-          `Stock: <strong>${d.stock}</strong>` +
-          (d.en_tendencia ? ' <span class="badge bg-warning text-dark">EN TENDENCIA</span>' : '');
-        inf.style.color = d.stock <= 5 ? '#dc2626' : '#6b7280';
-      }
-      if (priceField && !priceField.value) priceField.value = d.precio_venta;
-    } catch {}
-    calcularTotales();
+  sel.addEventListener('change', function() {
+    var pid = sel.value;
+    if (!pid) {
+      if (badge)      badge.textContent = '';
+      if (priceField) priceField.value  = '';
+      calcularTotales();
+      return;
+    }
+    fetch(apiUrl + '?producto=' + pid)
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (badge) {
+          badge.textContent  = 'Stock disponible: ' + d.stock;
+          badge.style.color  = d.stock <= 5 ? '#dc2626' : '#6b7280';
+        }
+        if (priceField && !priceField.value) {
+          priceField.value = d.precio_venta;
+        }
+        calcularTotales();
+      })
+      .catch(function() {});
   });
 }
 
-document.querySelectorAll('.formset-row').forEach((row, i) => bindStockInfo(row, i));
+// ──────────────────────────────────────────────
+// Inicializar al cargar la página
+// ──────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  toggleCampos();
 
-// ── Agregar fila ──
-document.getElementById('btn-agregar').addEventListener('click', () => {
-  const container  = document.getElementById('formset-container');
-  const primera    = container.querySelector('.formset-row');
-  const nueva      = primera.cloneNode(true);
-  nueva.querySelectorAll('input, select').forEach(el => {
-    el.name = el.name.replace(/-\d+-/, `-${formCount}-`);
-    el.id   = el.id.replace(/-\d+-/, `-${formCount}-`);
-    if (el.tagName === 'INPUT') el.value = '';
+  // Si hubo errores de validación, mantener visibles los campos que correspondan
+  // referencia siempre visible (se maneja en toggleCampos)
+  {% if form.cliente.errors or form.fecha_estimada_pago.errors %}
+  document.getElementById('cliente-wrapper').style.display    = 'block';
+  document.getElementById('fecha-pago-wrapper').style.display = 'block';
+  {% endif %}
+
+  // Inicializar todas las filas visibles
+  document.querySelectorAll('#formset-container .formset-row').forEach(function(row) {
+    if (row.style.display !== 'none') {
+      bindFila(row);
+      // Disparar change si ya hay producto seleccionado (recarga tras error)
+      var sel = row.querySelector('.producto-select');
+      if (sel && sel.value) sel.dispatchEvent(new Event('change'));
+    }
+  });
+
+  calcularTotales();
+});
+
+// ──────────────────────────────────────────────
+// Agregar nueva fila
+// ──────────────────────────────────────────────
+var formCount = parseInt(document.getElementById('id_form-TOTAL_FORMS').value);
+
+document.getElementById('btn-agregar').addEventListener('click', function() {
+  var container = document.getElementById('formset-container');
+  var primera   = container.querySelector('.formset-row');
+  var nueva     = primera.cloneNode(true);
+
+  nueva.style.display = '';
+
+  nueva.querySelectorAll('input, select').forEach(function(el) {
+    el.name = el.name.replace(/-\d+-/, '-' + formCount + '-');
+    if (el.id) el.id = el.id.replace(/-\d+-/, '-' + formCount + '-');
+    if (el.tagName === 'INPUT')  el.value = '';
     if (el.tagName === 'SELECT') el.selectedIndex = 0;
   });
-  const badge = nueva.querySelector('.stock-badge');
-  if (badge) { badge.id = `stock-info-${formCount}`; badge.textContent = ''; }
+
+  var badge = nueva.querySelector('.stock-badge');
+  if (badge) badge.textContent = '';
   nueva.querySelector('.subtotal-val').textContent = 'Bs. 0.00';
+
   container.appendChild(nueva);
-  bindStockInfo(nueva, formCount);
+  bindFila(nueva);
   formCount++;
   document.getElementById('id_form-TOTAL_FORMS').value = formCount;
   calcularTotales();
 });
 
+// ──────────────────────────────────────────────
+// Eliminar fila
+// ──────────────────────────────────────────────
 function eliminarFila(btn) {
-  const fila = btn.closest('.formset-row');
-  const del  = fila.querySelector('[name$="-DELETE"]');
+  var fila = btn.closest('.formset-row');
+  var del  = fila.querySelector('[name$="-DELETE"]');
   if (del) { del.checked = true; fila.style.display = 'none'; }
   else fila.remove();
   calcularTotales();
 }
-
-calcularTotales();
 </script>
 {% endblock %}

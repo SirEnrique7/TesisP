@@ -80,7 +80,10 @@ def crear_venta(request):
         form    = VentaForm(request.POST)
         formset = DetalleVentaFormSet(request.POST)
 
-        if form.is_valid() and formset.is_valid():
+        form_ok    = form.is_valid()
+        formset_ok = formset.is_valid()
+
+        if form_ok and formset_ok:
             with transaction.atomic():
                 venta          = form.save(commit=False)
                 venta.empleado = request.user
