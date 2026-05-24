@@ -295,24 +295,39 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ──────────────────────────────────────────────
-// Agregar nueva fila
+// Plantilla de fila vacía (se construye una sola vez al cargar)
+// Así el clon siempre es limpio, sin importar el estado de las filas existentes
 // ──────────────────────────────────────────────
 var formCount = parseInt(document.getElementById('id_form-TOTAL_FORMS').value);
+var PLANTILLA_FILA = null;
+
+function construirPlantilla() {
+  // Tomar la primera fila visible o cualquier fila como base
+  var base = document.querySelector('#formset-container .formset-row');
+  if (!base) return;
+  PLANTILLA_FILA = base.cloneNode(true);
+  // Limpiar completamente la plantilla
+  PLANTILLA_FILA.style.display = '';
+  PLANTILLA_FILA.querySelectorAll('input').forEach(function(el) { el.value = ''; });
+  PLANTILLA_FILA.querySelectorAll('select').forEach(function(el) { el.selectedIndex = 0; });
+  var badge = PLANTILLA_FILA.querySelector('.stock-badge');
+  if (badge) badge.textContent = '';
+  PLANTILLA_FILA.querySelector('.subtotal-val').textContent = 'Bs. 0.00';
+}
 
 document.getElementById('btn-agregar').addEventListener('click', function() {
+  if (!PLANTILLA_FILA) { alert('No hay plantilla de fila disponible.'); return; }
+
   var container = document.getElementById('formset-container');
-  var primera   = container.querySelector('.formset-row');
-  var nueva     = primera.cloneNode(true);
+  var nueva     = PLANTILLA_FILA.cloneNode(true);
 
-  nueva.style.display = '';
-
+  // Asignar índice correcto a todos los campos
   nueva.querySelectorAll('input, select').forEach(function(el) {
-    el.name = el.name.replace(/-\d+-/, '-' + formCount + '-');
-    if (el.id) el.id = el.id.replace(/-\d+-/, '-' + formCount + '-');
-    if (el.tagName === 'INPUT')  el.value = '';
-    if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    if (el.name) el.name = el.name.replace(/-\d+-/, '-' + formCount + '-');
+    if (el.id)   el.id   = el.id.replace(/-\d+-/, '-' + formCount + '-');
   });
 
+  // Asegurar que el badge y subtotal estén limpios
   var badge = nueva.querySelector('.stock-badge');
   if (badge) badge.textContent = '';
   nueva.querySelector('.subtotal-val').textContent = 'Bs. 0.00';
@@ -322,14 +337,33 @@ document.getElementById('btn-agregar').addEventListener('click', function() {
   formCount++;
   document.getElementById('id_form-TOTAL_FORMS').value = formCount;
   calcularTotales();
+
+  // Construir plantilla limpia DESPUÉS de que el DOM esté listo
+  construirPlantilla();
 });
 
 // ──────────────────────────────────────────────
 // Eliminar fila
+// Si es la única fila visible, la limpia en lugar de ocultarla
 // ──────────────────────────────────────────────
 function eliminarFila(btn) {
   var fila = btn.closest('.formset-row');
-  var del  = fila.querySelector('[name$="-DELETE"]');
+  var filasVisibles = document.querySelectorAll('#formset-container .formset-row:not([style*="display: none"]):not([style*="display:none"])');
+
+  if (filasVisibles.length <= 1) {
+    // Es la única fila — limpiarla en lugar de eliminarla
+    fila.querySelectorAll('input').forEach(function(el) {
+      if (!el.name.endsWith('-DELETE') && el.type !== 'hidden') el.value = '';
+    });
+    fila.querySelectorAll('select').forEach(function(el) { el.selectedIndex = 0; });
+    var badge = fila.querySelector('.stock-badge');
+    if (badge) badge.textContent = '';
+    fila.querySelector('.subtotal-val').textContent = 'Bs. 0.00';
+    calcularTotales();
+    return;
+  }
+
+  var del = fila.querySelector('[name$="-DELETE"]');
   if (del) { del.checked = true; fila.style.display = 'none'; }
   else fila.remove();
   calcularTotales();
