@@ -1,10 +1,9 @@
-# ══════════════════════════════════════════════════════════════
-# VIEWS — Cuentas por Pagar / Cobrar
-# ══════════════════════════════════════════════════════════════
-
+from django.db import transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db.models import Sum, Count, Q
+from django.db.models.functions import Coalesce
+from decimal import Decimal
 from datetime import date
 
 from core.models_bimonetario import (
@@ -31,21 +30,20 @@ def lista_cuentas_pagar(request):
     if estado != 'todas':
         cuentas = cuentas.filter(estado=estado)
 
-    # Totales del panel
     resumen = CuentaPorPagar.objects.filter(
         estado__in=['pendiente', 'abonada']
     ).aggregate(
-        total_bs  = Sum('saldo_restante'),
-        total_usd = Sum('monto_usd'),
-        cantidad  = Count('id'),
-        vencidas  = Count('id', filter=Q(fecha_vencimiento__lt=date.today()))
+        total_bs=Coalesce(Sum('saldo_restante'), Decimal('0.00')),
+        total_usd=Coalesce(Sum('monto_usd'), Decimal('0.00')),
+        cantidad=Count('id'),
+        vencidas=Count('id', filter=Q(fecha_vencimiento__lt=date.today()))
     )
 
     tasa_hoy = TasaCambio.tasa_vigente()
 
     return render(request, 'core/cuentas_pagar/lista.html', {
         'cuentas': cuentas,
-        'estado':  estado,
+        'estado': estado,
         'resumen': resumen,
         'tasa_hoy': tasa_hoy,
     })
@@ -55,48 +53,44 @@ def lista_cuentas_pagar(request):
 def detalle_cuenta_pagar(request, pk):
     cuenta = get_object_or_404(CuentaPorPagar, pk=pk)
     abonos = cuenta.abonos.select_related('registrado_por').all()
-
-    form = AbonoProveedorForm(cuenta=cuenta)
+    
+    tasa_hoy = TasaCambio.tasa_vigente()
+    form = AbonoProveedorForm(cuenta=cuenta, initial={'tasa_bcv': tasa_hoy})
 
     return render(request, 'core/cuentas_pagar/detalle.html', {
         'cuenta': cuenta,
         'abonos': abonos,
-        'form':   form,
+        'form': form,
     })
 
 
 @solo_admin
 def registrar_abono_proveedor(request, pk):
-    cuenta = get_object_or_404(CuentaPorPagar, pk=pk)
+    with transaction.atomic():
+        cuenta = get_object_or_404(CuentaPorPagar.objects.select_for_update(), pk=pk)
 
-    if cuenta.estado == 'saldada':
-        messages.info(request, 'Esta cuenta ya está saldada.')
-        return redirect('core:detalle_cuenta_pagar', pk=pk)
+        if cuenta.estado == 'saldada':
+            messages.info(request, 'Esta cuenta ya está saldada.')
+            return redirect('core:detalle_cuenta_pagar', pk=pk)
 
-    if request.method == 'POST':
-        form = AbonoProveedorForm(request.POST, cuenta=cuenta)
-        if form.is_valid():
-            try:
-                cuenta.registrar_abono(
-                    monto_abono = form.cleaned_data['monto_bs'],
-                    referencia  = form.cleaned_data['referencia'],
-                    usuario     = request.user,
-                )
-                AuditoriaAccion.registrar(
-                    usuario=request.user, accion='pago_proveedor',
-                    descripcion=(
-                        f'Abono Bs. {form.cleaned_data["monto_bs"]} '
-                        f'a {cuenta.proveedor} — Ref: {form.cleaned_data["referencia"]}'
-                    ),
-                    request=request, objeto_tipo='CuentaPorPagar', objeto_id=cuenta.pk,
-                )
-                if cuenta.estado == 'saldada':
-                    messages.success(request, f'¡Cuenta saldada completamente! Compra #{cuenta.compra.id} marcada como pagada.')
-                else:
-                    messages.success(request, f'Abono registrado. Saldo restante: Bs. {cuenta.saldo_restante}')
-            except ValueError as e:
-                messages.error(request, str(e))
-
+        if request.method == 'POST':
+            form = AbonoProveedorForm(request.POST, cuenta=cuenta)
+            if form.is_valid():
+                try:
+                    cuenta.registrar_abono(
+                        monto_abono=form.cleaned_data['monto_bs'],
+                        tasa_bcv=form.cleaned_data['tasa_bcv'],
+                        referencia=form.cleaned_data['referencia'],
+                        usuario=request.user,
+                    )
+                    AuditoriaAccion.registrar(
+                        usuario=request.user, accion='pago_proveedor',
+                        descripcion=f'Abono Bs. {form.cleaned_data["monto_bs"]} a {cuenta.proveedor} — Ref: {form.cleaned_data["referencia"]}',
+                        request=request, objeto_tipo='CuentaPorPagar', objeto_id=cuenta.pk,
+                    )
+                    messages.success(request, 'Abono registrado correctamente.')
+                except ValueError as e:
+                    messages.error(request, str(e))
     return redirect('core:detalle_cuenta_pagar', pk=pk)
 
 
@@ -118,18 +112,18 @@ def lista_cuentas_cobrar(request):
     resumen = CuentaPorCobrar.objects.filter(
         estado__in=['pendiente', 'abonada']
     ).aggregate(
-        total_bs  = Sum('saldo_restante'),
-        total_usd = Sum('monto_usd'),
-        cantidad  = Count('id'),
-        vencidas  = Count('id', filter=Q(fecha_estimada_pago__lt=date.today()))
+        total_bs=Coalesce(Sum('saldo_restante'), Decimal('0.00')),
+        total_usd=Coalesce(Sum('monto_usd'), Decimal('0.00')),
+        cantidad=Count('id'),
+        vencidas=Count('id', filter=Q(fecha_estimada_pago__lt=date.today()))
     )
 
     tasa_hoy = TasaCambio.tasa_vigente()
 
     return render(request, 'core/cuentas_cobrar/lista.html', {
-        'cuentas':  cuentas,
-        'estado':   estado,
-        'resumen':  resumen,
+        'cuentas': cuentas,
+        'estado': estado,
+        'resumen': resumen,
         'tasa_hoy': tasa_hoy,
     })
 
@@ -138,47 +132,43 @@ def lista_cuentas_cobrar(request):
 def detalle_cuenta_cobrar(request, pk):
     cuenta = get_object_or_404(CuentaPorCobrar, pk=pk)
     abonos = cuenta.abonos.select_related('registrado_por').all()
-    form   = PagoClienteForm(cuenta=cuenta)
+    tasa_hoy = TasaCambio.tasa_vigente()
+    form = PagoClienteForm(cuenta=cuenta, initial={'tasa_bcv': tasa_hoy})
 
     return render(request, 'core/cuentas_cobrar/detalle.html', {
         'cuenta': cuenta,
         'abonos': abonos,
-        'form':   form,
+        'form': form,
     })
 
 
 @solo_admin
 def registrar_pago_cliente(request, pk):
-    cuenta = get_object_or_404(CuentaPorCobrar, pk=pk)
+    with transaction.atomic():
+        cuenta = get_object_or_404(CuentaPorCobrar.objects.select_for_update(), pk=pk)
 
-    if cuenta.estado == 'saldada':
-        messages.info(request, 'Esta cuenta ya está saldada.')
-        return redirect('core:detalle_cuenta_cobrar', pk=pk)
+        if cuenta.estado == 'saldada':
+            messages.info(request, 'Esta cuenta ya está saldada.')
+            return redirect('core:detalle_cuenta_cobrar', pk=pk)
 
-    if request.method == 'POST':
-        form = PagoClienteForm(request.POST, cuenta=cuenta)
-        if form.is_valid():
-            try:
-                cuenta.registrar_pago(
-                    monto_pago = form.cleaned_data['monto_bs'],
-                    referencia = form.cleaned_data['referencia'],
-                    usuario    = request.user,
-                )
-                AuditoriaAccion.registrar(
-                    usuario=request.user, accion='pago_cliente',
-                    descripcion=(
-                        f'Pago Bs. {form.cleaned_data["monto_bs"]} '
-                        f'de {cuenta.cliente} — Ref: {form.cleaned_data["referencia"]}'
-                    ),
-                    request=request, objeto_tipo='CuentaPorCobrar', objeto_id=cuenta.pk,
-                )
-                if cuenta.estado == 'saldada':
-                    messages.success(request, f'¡Cuenta saldada! Venta #{cuenta.venta.id} actualizada a PAGADA.')
-                else:
-                    messages.success(request, f'Pago registrado. Saldo restante: Bs. {cuenta.saldo_restante}')
-            except ValueError as e:
-                messages.error(request, str(e))
-
+        if request.method == 'POST':
+            form = PagoClienteForm(request.POST, cuenta=cuenta)
+            if form.is_valid():
+                try:
+                    cuenta.registrar_pago(
+                        monto_pago=form.cleaned_data['monto_bs'],
+                        tasa_bcv=form.cleaned_data['tasa_bcv'],
+                        referencia=form.cleaned_data['referencia'],
+                        usuario=request.user,
+                    )
+                    AuditoriaAccion.registrar(
+                        usuario=request.user, accion='pago_cliente',
+                        descripcion=f'Pago Bs. {form.cleaned_data["monto_bs"]} de {cuenta.cliente} — Ref: {form.cleaned_data["referencia"]}',
+                        request=request, objeto_tipo='CuentaPorCobrar', objeto_id=cuenta.pk,
+                    )
+                    messages.success(request, 'Pago registrado correctamente.')
+                except ValueError as e:
+                    messages.error(request, str(e))
     return redirect('core:detalle_cuenta_cobrar', pk=pk)
 
 
@@ -188,7 +178,7 @@ def registrar_pago_cliente(request, pk):
 
 @solo_admin
 def lista_clientes(request):
-    q        = request.GET.get('q', '')
+    q = request.GET.get('q', '')
     clientes = Cliente.objects.all().order_by('apellido', 'nombre')
     if q:
         clientes = clientes.filter(

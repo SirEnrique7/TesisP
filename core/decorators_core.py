@@ -8,13 +8,6 @@ from django.shortcuts import redirect
 from django.contrib import messages
 
 
-def _redirigir(request):
-    """Destino de redirección según rol."""
-    if request.user.is_authenticated:
-        return redirect('core:dashboard')
-    return redirect('core:login')
-
-
 def login_requerido(view_func):
     """Requiere sesión activa. Redirige al login si no."""
     @wraps(view_func)
@@ -54,25 +47,21 @@ def solo_encargado(view_func):
     return wrapper
 
 
-def bloquear_encargado(campos_sensibles=None):
+def bloquear_encargado():
     """
-    Decorador de contexto: no bloquea la vista completa,
-    sino que inyecta en el contexto si el usuario puede
-    ver campos financieros sensibles (precios de compra,
-    márgenes, saldos). Usado en templates con {% if puede_ver_financiero %}.
-
-    Uso en vista:
-        @login_requerido
-        @bloquear_encargado()
-        def mi_vista(request): ...
+    Inyecta de forma segura la variable 'puede_ver_financiero' en el objeto request.
+    De este modo, estará disponible de forma idéntica en la vista y en el template
+    como {{ puede_ver_financiero }} gracias al procesador de contexto de Django.
     """
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
-            response = view_func(request, *args, **kwargs)
-            # Inyectar flag en el contexto del template si es TemplateResponse
-            if hasattr(response, 'context_data'):
-                response.context_data['puede_ver_financiero'] = request.user.es_admin()
-            return response
+            # Inyectamos el flag en el request ANTES de procesar la vista
+            if request.user.is_authenticated:
+                request.puede_ver_financiero = request.user.es_admin()
+            else:
+                request.puede_ver_financiero = False
+                
+            return view_func(request, *args, **kwargs)
         return wrapper
     return decorator

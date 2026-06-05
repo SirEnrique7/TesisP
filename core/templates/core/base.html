@@ -126,14 +126,13 @@
 </head>
 <body>
 
-<!-- ═══ SIDEBAR ═══ -->
 <nav id="sidebar">
   <div class="sidebar-brand">Inv. <span>Ramón</span> <br><small style="opacity:.5;font-size:.6rem">Sistema de gestión</small></div>
 
   {% if tasa_bcv %}
   <div class="tasa-pill">
     <i class="bi bi-currency-exchange me-1"></i>
-    BCV hoy: <strong>Bs. {{ tasa_bcv.tasa_bs_usd }}</strong>
+    BCV hoy: <strong>Bs. {{ tasa_bcv|default_if_none:"—" }}</strong>
   </div>
   {% endif %}
 
@@ -207,7 +206,6 @@
   </div>
 </nav>
 
-<!-- ═══ MAIN ═══ -->
 <div id="main">
   <div class="topbar">
     <span class="topbar-title">{% block topbar_titulo %}{% endblock %}</span>

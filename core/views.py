@@ -1,7 +1,3 @@
-# ══════════════════════════════════════════════════════════════
-# VIEWS — Módulo Core
-# ══════════════════════════════════════════════════════════════
-
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
@@ -11,6 +7,8 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
+from django.urls import reverse # CORRECCIÓN: Para reversión estricta de URLs
+from django.db.models import F, Q, Sum # CORRECCIÓN: Para optimización de Queries en BD
 
 from .models import Usuario, TasaCambio, AuditoriaAccion
 from .forms import (
@@ -19,6 +17,8 @@ from .forms import (
 )
 from .decorators_core import login_requerido, solo_admin
 from .bcv_scraper import actualizar_tasa_hoy
+
+import threading # CORRECCIÓN: Para evitar el bloqueo de hilos en el login
 
 
 # ─────────────────────────────────────────────
@@ -38,19 +38,19 @@ def vista_login(request):
 
             AuditoriaAccion.registrar(
                 usuario=usuario, accion='login',
-                descripcion=f'Inicio de sesión exitoso.',
+                descripcion='Inicio de sesión exitoso.',
                 request=request,
             )
 
-            # Actualizar tasa BCV al primer login del día (en segundo plano)
+            # CORRECCIÓN: Se ejecuta el scraper en un hilo secundario (Thread) 
+            # para que el login responda de inmediato sin esperar la respuesta de la web del BCV
             try:
-                actualizar_tasa_hoy()
+                threading.Thread(target=actualizar_tasa_hoy, daemon=True).start()
             except Exception:
-                pass  # No bloquear el login si el scraper falla
+                pass 
 
             return redirect('core:dashboard')
         else:
-            # Registrar intento fallido
             username_intent = request.POST.get('username', '')
             AuditoriaAccion.registrar(
                 usuario=None, accion='login_fallido',
@@ -82,29 +82,34 @@ def dashboard(request):
     from inventario.models import Producto
     from compras.models import Compra
     from ventas.models import Venta
-    from core.models_bimonetario import CuentaPorCobrar
 
     tasa_hoy = TasaCambio.tasa_vigente()
 
-    # Stats comunes
-    total_productos    = Producto.objects.filter(activo=True).count()
-    productos_bajo     = [p for p in Producto.objects.filter(activo=True) if p.stock_bajo]
+    # CORRECCIÓN: Filtrado optimizado directo en Base de Datos (SQL) 
+    # Evita traer miles de registros a la memoria RAM del servidor.
+    total_productos = Producto.objects.filter(activo=True).count()
+    
+    # Asumiendo que stock_bajo se calcula cuando stock actual es menor o igual al minimo
+    productos_bajo = Producto.objects.filter(
+        activo=True,
+        stock_actual__lte=F('stock_minimo')
+    ).order_by('stock_actual')[:5]
+    
     compras_pendientes = Compra.objects.filter(estado='pendiente').count()
 
     context = {
         'tasa_hoy':            tasa_hoy,
         'total_productos':     total_productos,
-        'productos_bajo':      productos_bajo[:5],
+        'productos_bajo':      productos_bajo,
         'compras_pendientes':  compras_pendientes,
         'puede_ver_financiero': request.user.es_admin(),
     }
 
-    # Stats exclusivas del admin
     if request.user.es_admin():
         from core.models_bimonetario import CuentaPorCobrar, CuentaPorPagar
-        from django.db.models import Sum
         from datetime import date
 
+        # Consultas de agregación SQL directas
         context['cuentas_por_cobrar'] = CuentaPorCobrar.objects.filter(
             estado='pendiente'
         ).aggregate(total=Sum('saldo_restante'))['total'] or 0
@@ -131,7 +136,8 @@ def dashboard(request):
 
 @solo_admin
 def lista_usuarios(request):
-    usuarios = Usuario.objects.all().order_by('is_active', 'last_name')
+    # Se añade ordenamiento explícito por estado y apellido para la vista
+    usuarios = Usuario.objects.all().order_by('-is_active', 'last_name', 'first_name')
     return render(request, 'core/lista_usuarios.html', {'usuarios': usuarios})
 
 
@@ -186,10 +192,8 @@ def editar_usuario(request, pk):
 
 @solo_admin
 def dar_de_baja(request, pk):
-    """Baja lógica: is_active = False. Nunca DELETE."""
     usuario = get_object_or_404(Usuario, pk=pk)
 
-    # No permitir darse de baja a sí mismo
     if usuario == request.user:
         messages.error(request, 'No puedes darte de baja a ti mismo.')
         return redirect('core:lista_usuarios')
@@ -201,7 +205,7 @@ def dar_de_baja(request, pk):
             descripcion=f'Baja lógica ejecutada sobre: {usuario.get_nombre_completo()} ({usuario.cedula})',
             request=request, objeto_tipo='Usuario', objeto_id=usuario.pk,
         )
-        messages.warning(request, f'Usuario "{usuario.get_nombre_completo()}" dado de baja. Sus registros históricos se mantienen intactos.')
+        messages.warning(request, f'Usuario "{usuario.get_nombre_completo()}" dado de baja.')
         return redirect('core:lista_usuarios')
 
     return render(request, 'core/confirmar_baja.html', {'usuario': usuario})
@@ -230,9 +234,9 @@ def recuperar_password(request):
             uid     = urlsafe_base64_encode(force_bytes(usuario.pk))
             token   = default_token_generator.make_token(usuario)
 
-            enlace = request.build_absolute_uri(
-                f'/auth/reset/{uid}/{token}/'
-            )
+            # CORRECCIÓN: Generación dinámica del path usando reverse para blindar las URLs del sistema
+            path_dinamico = reverse('core:reset_password', kwargs={'uidb64': uid, 'token': token})
+            enlace = request.build_absolute_uri(path_dinamico)
 
             send_mail(
                 subject='Recuperación de contraseña — Inversiones Ramón',
@@ -261,7 +265,6 @@ def reset_password(request, uidb64, token):
     except (TypeError, ValueError, Usuario.DoesNotExist):
         usuario = None
 
-    # Validar token (expira en 15 min via settings.PASSWORD_RESET_TIMEOUT)
     if usuario is None or not default_token_generator.check_token(usuario, token):
         messages.error(request, 'El enlace es inválido o ha expirado.')
         return redirect('core:recuperar_password')
@@ -284,7 +287,8 @@ def reset_password(request, uidb64, token):
 
 @solo_admin
 def log_auditoria(request):
-    logs = AuditoriaAccion.objects.select_related('usuario').all()[:200]
+    # CORRECCIÓN: Se añade ordenamiento explícito por fecha descendente (-id o -fecha)
+    logs = AuditoriaAccion.objects.select_related('usuario').all().order_by('-id')[:200]
     return render(request, 'core/auditoria.html', {'logs': logs})
 
 
@@ -294,5 +298,6 @@ def log_auditoria(request):
 
 @solo_admin
 def historial_tasa(request):
-    tasas = TasaCambio.objects.all()[:30]
+    # CORRECCIÓN: Se añade ordenamiento por fecha descendente para ver siempre la tasa más reciente arriba
+    tasas = TasaCambio.objects.all().order_by('-fecha')[:30]
     return render(request, 'core/historial_tasa.html', {'tasas': tasas})

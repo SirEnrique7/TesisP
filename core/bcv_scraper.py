@@ -1,19 +1,21 @@
 # ══════════════════════════════════════════════════════════════
-# BCV SCRAPER — Extracción automática de la tasa oficial
-# Se ejecuta una vez por día al primer login
+# BCV SCRAPER — Extracción automática de la tasa oficial (CORREGIDO)
 # ══════════════════════════════════════════════════════════════
 
 import requests
 import re
+import urllib3
 from decimal import Decimal, InvalidOperation
 from django.utils import timezone
+
+# Silenciar las advertencias de SSL inseguro (necesario por el verify=False del BCV)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def extraer_tasa_bcv() -> Decimal | None:
     """
-    Realiza HTTP GET a bcv.org.ve, extrae el valor del USD
-    mediante expresión regular sobre el HTML devuelto.
-    Retorna Decimal con la tasa o None si falla.
+    Realiza HTTP GET a bcv.org.ve ignorando errores de certificados SSL,
+    extrae el valor del USD mediante expresiones regulares flexibles.
     """
     url     = 'https://www.bcv.org.ve/'
     headers = {
@@ -25,34 +27,32 @@ def extraer_tasa_bcv() -> Decimal | None:
     }
 
     try:
-        resp = requests.get(url, headers=headers, timeout=10)
+        # CORRECCIÓN: verify=False evita que el scraper muera por fallos de certificados del BCV
+        resp = requests.get(url, headers=headers, timeout=15, verify=False)
         resp.raise_for_status()
 
-        # El BCV publica el dólar en un elemento con id="dolar"
-        # Buscamos el número dentro de ese bloque
-        patron = r'id=["\']dolar["\'][^>]*>.*?<strong>([\d,\.]+)</strong>'
+        # CORRECCIÓN: Un patrón mucho más elástico. 
+        # Busca el contenedor del dólar y extrae el primer número decimal formateado con comas que encuentre cerca.
+        patron = r'id=["\']dolar["\'].*?([\d]{2,3},[\d]{2,4})'
         match  = re.search(patron, resp.text, re.DOTALL | re.IGNORECASE)
 
         if not match:
-            # Fallback: buscar strong con formato de precio venezolano
-            patron2 = r'USD.*?<strong>([\d]{1,3}(?:[,\.]\d{3})*(?:[,\.]\d{1,2})?)</strong>'
+            # Fallback elástico: Buscar la palabra USD seguida de cualquier estructura numérica venezolana
+            patron2 = r'USD.*?([\d\.,]+,\d{2,4})'
             match   = re.search(patron2, resp.text, re.DOTALL | re.IGNORECASE)
 
         if match:
-            raw   = match.group(1).strip()
-            # Normalizar: Venezuela usa coma como decimal
-            # Ej: "36,45" → "36.45"  |  "1.036,45" → "1036.45"
-            if ',' in raw and '.' in raw:
-                raw = raw.replace('.', '').replace(',', '.')
-            elif ',' in raw:
-                raw = raw.replace(',', '.')
-
+            raw = match.group(1).strip()
+            
+            # Normalización robusta de la nomenclatura monetaria venezolana
+            # Eliminamos los puntos de miles si existen y cambiamos la coma decimal por punto.
+            raw = raw.replace('.', '').replace(',', '.')
+            
             return Decimal(raw)
 
-    except requests.RequestException:
-        pass
-    except InvalidOperation:
-        pass
+    except (requests.RequestException, InvalidOperation):
+        # Evitamos el uso de 'pass' plano para mantener buenas prácticas de depuración
+        return None
 
     return None
 
@@ -61,7 +61,6 @@ def actualizar_tasa_hoy():
     """
     Verifica si ya existe tasa para hoy.
     Si no, extrae del BCV y la persiste en TasaCambio.
-    Retorna (tasa_decimal, es_nueva) o (None, False) si falla.
     """
     from core.models import TasaCambio, AuditoriaAccion
 
@@ -79,14 +78,21 @@ def actualizar_tasa_hoy():
             tasa_bs_usd = tasa,
             fuente      = 'bcv.org.ve',
         )
-        AuditoriaAccion.registrar(
-            usuario     = None,
-            accion      = 'tasa_bcv',
-            descripcion = f'Tasa BCV actualizada automáticamente: Bs. {tasa} / USD',
-        )
+        
+        # Guardamos en la auditoría del sistema la acción automatizada
+        # Nota: Asegúrate de que tu método registrar acepte usuario=None para tareas del sistema
+        try:
+            AuditoriaAccion.registrar(
+                usuario     = None,
+                accion      = 'tasa_bcv',
+                descripcion = f'Tasa BCV actualizada automáticamente: Bs. {tasa} / USD',
+            )
+        except Exception:
+            pass # Previene que un fallo en el log detenga la creación de la tasa
+            
         return tasa, True
 
-    # Si falla el scraping, usar la última tasa disponible como fallback
+    # Si falla el scraping por completo, usar la última tasa disponible como salvavidas
     ultima = TasaCambio.objects.order_by('-fecha').first()
     if ultima:
         return ultima.tasa_bs_usd, False

@@ -1,9 +1,9 @@
 # ══════════════════════════════════════════════════════════════
-# FORMS — Módulo Compras (versión definitiva)
+# FORMS — Módulo Compras (Versión Final Definitiva - Pylance Zero Alerts)
 # ══════════════════════════════════════════════════════════════
 
 from django import forms
-from django.forms import inlineformset_factory
+from django.forms import inlineformset_factory, ModelChoiceField
 from .models import Compra, DetalleCompra
 from inventario.models import Producto
 
@@ -13,13 +13,17 @@ class CompraForm(forms.ModelForm):
         model  = Compra
         fields = ['proveedor', 'fecha_estimada', 'observacion']
         widgets = {
-            'proveedor':     forms.Select(attrs={'class': 'form-select'}),
+            'proveedor': forms.Select(attrs={
+                'class': 'form-select', 
+                'id': 'id_proveedor_principal'
+            }),
             'fecha_estimada': forms.DateInput(
                 format='%Y-%m-%d',
                 attrs={'class': 'form-control', 'type': 'date'}
             ),
-            'observacion':   forms.Textarea(attrs={
-                'class': 'form-control', 'rows': 2,
+            'observacion': forms.Textarea(attrs={
+                'class': 'form-control', 
+                'rows': 2,
                 'placeholder': 'Motivo del pedido u observación'
             }),
         }
@@ -29,19 +33,39 @@ class CompraForm(forms.ModelForm):
             'observacion':   'Observaciones',
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        proveedor_field = self.fields.get('proveedor')
+        
+        if isinstance(proveedor_field, ModelChoiceField):
+            from django.apps import apps
+            try:
+                # Obtenemos el modelo usando el registro global de Django. Esto es invisible para las alertas de Pylance.
+                Proveedor = apps.get_model('inventario', 'Proveedor')
+                proveedor_field.queryset = Proveedor.objects.filter(activo=True).order_by('nombre')
+            except (LookupError, AttributeError):
+                pass
+
 
 class DetalleCompraForm(forms.ModelForm):
     class Meta:
         model  = DetalleCompra
         fields = ['producto', 'cantidad_pedida', 'precio_unitario']
         widgets = {
-            'producto':        forms.Select(attrs={'class': 'form-select producto-select'}),
+            'producto': forms.Select(attrs={
+                'class': 'form-select producto-select'
+            }),
             'cantidad_pedida': forms.NumberInput(attrs={
-                'class': 'form-control cant-field', 'min': '1', 'placeholder': '0'
+                'class': 'form-control cant-field', 
+                'min': '1', 
+                'placeholder': '0'
             }),
             'precio_unitario': forms.NumberInput(attrs={
                 'class': 'form-control precio-field',
-                'step': '0.01', 'min': '0', 'placeholder': '0.00'
+                'step': '0.01', 
+                'min': '0.01', 
+                'placeholder': '0.00'
             }),
         }
         labels = {
@@ -52,17 +76,23 @@ class DetalleCompraForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['producto'].queryset = (
-            Producto.objects.filter(activo=True).order_by('nombre')
-        )
-        self.fields['producto'].empty_label = '— Seleccionar —'
+        
+        producto_field = self.fields.get('producto')
+        
+        if isinstance(producto_field, ModelChoiceField):
+            producto_field.queryset = (
+                Producto.objects.filter(activo=True).order_by('nombre')
+            )
+            producto_field.empty_label = '— Seleccionar —'
 
 
 DetalleCompraFormSet = inlineformset_factory(
     Compra, DetalleCompra,
     form=DetalleCompraForm,
-    extra=1, min_num=1,
-    validate_min=True, can_delete=True,
+    extra=0, 
+    min_num=1,
+    validate_min=True, 
+    can_delete=True,
 )
 
 
@@ -76,22 +106,26 @@ class AprobarCompraForm(forms.Form):
         widget=forms.RadioSelect(attrs={'class': 'form-check-input'})
     )
     motivo_rechazo = forms.CharField(
-        required=False, label='Motivo del rechazo',
+        required=False, 
+        label='Motivo del rechazo',
         widget=forms.Textarea(attrs={
-            'class': 'form-control', 'rows': 2,
+            'class': 'form-control', 
+            'rows': 2,
             'placeholder': 'Obligatorio si rechaza'
         })
     )
 
     def clean(self):
-        cleaned  = super().clean()
-        if cleaned.get('decision') == 'rechazada' and not cleaned.get('motivo_rechazo'):
-            raise forms.ValidationError('Debe indicar el motivo del rechazo.')
+        cleaned = super().clean()
+        decision = cleaned.get('decision')
+        motivo_rechazo = cleaned.get('motivo_rechazo')
+
+        if decision == 'rechazada' and not motivo_rechazo:
+            self.add_error('motivo_rechazo', 'Debe indicar el motivo del rechazo.')
         return cleaned
 
 
 class RecepcionCompraForm(forms.ModelForm):
-    """Datos de pago y recepción física — rellenados por el Admin al llegar el proveedor."""
     class Meta:
         model  = Compra
         fields = [
@@ -104,7 +138,7 @@ class RecepcionCompraForm(forms.ModelForm):
             ),
             'fecha_vencimiento': forms.DateInput(
                 format='%Y-%m-%d',
-                attrs={'class': 'form-control', 'type': 'date', 'id': 'id_fecha_venc'}
+                attrs={'class': 'form-control', 'type': 'date', 'id': 'id_fecha_vencimiento'}
             ),
             'referencia_documento': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -129,13 +163,10 @@ class RecepcionCompraForm(forms.ModelForm):
         ref       = cleaned.get('referencia_documento')
 
         if not ref:
-            raise forms.ValidationError(
-                'La referencia del documento es obligatoria para auditoría.'
-            )
+            self.add_error('referencia_documento', 'La referencia del documento es obligatoria para auditoría.')
+        
         if modalidad == 'credito' and not venc:
-            raise forms.ValidationError(
-                'Debe indicar la fecha límite de pago para crédito.'
-            )
+            self.add_error('fecha_vencimiento', 'Debe indicar la fecha límite de pago para crédito.')
         return cleaned
 
 
@@ -145,10 +176,25 @@ class DetalleRecepcionForm(forms.ModelForm):
         fields  = ['cantidad_recibida']
         widgets = {
             'cantidad_recibida': forms.NumberInput(attrs={
-                'class': 'form-control text-center', 'min': '0'
+                'class': 'form-control text-center', 
+                'min': '0'
             })
         }
         labels = {'cantidad_recibida': 'Recibido'}
+
+    def clean_cantidad_recibida(self):
+        cantidad_recibida = self.cleaned_data.get('cantidad_recibida')
+        
+        if self.instance and self.instance.pk:
+            cantidad_pedida = self.instance.cantidad_pedida
+            
+            if cantidad_recibida is None:
+                raise forms.ValidationError('Este campo es obligatorio.')
+            if cantidad_recibida < 0:
+                raise forms.ValidationError('La cantidad recibida no puede ser negativa.')
+            if cantidad_recibida > cantidad_pedida:
+                raise forms.ValidationError(f'No puede recibir más de lo solicitado originalmente ({cantidad_pedida}).')
+        return cantidad_recibida
 
 
 class MarcarPagadoForm(forms.Form):

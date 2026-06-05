@@ -22,7 +22,6 @@
 {% block contenido %}
 <div class="row g-3">
 
-  <!-- Info venta -->
   <div class="col-lg-4">
     <div class="card mb-3">
       <div class="card-header">Información de la venta</div>
@@ -48,25 +47,31 @@
             <div class="text-muted small">Empleado</div>
             {{ venta.empleado.get_nombre_completo|default:"—" }}
           </div>
-          <div class="col-6">
+          <div class="col-12 border-top pt-2 mt-2">
             <div class="text-muted small">Cliente</div>
-            {{ venta.cliente.get_nombre_completo|default:"Sin registrar" }}
+            <strong>{{ venta.cliente.get_nombre_completo|default:"Consumidor final" }}</strong>
+            {% if venta.cliente %}
+              <div class="text-muted small">C.I. / RIF: {{ venta.cliente.cedula_rif }}</div>
+            {% endif %}
           </div>
-          <div class="col-6">
+          
+          {% if user.es_admin %}
+          <div class="col-6 border-top pt-2 mt-2">
             <div class="text-muted small">Método de pago</div>
             {{ venta.get_metodo_pago_display }}
           </div>
           {% if venta.referencia_pago %}
-          <div class="col-12">
+          <div class="col-6 border-top pt-2 mt-2">
             <div class="text-muted small">Referencia</div>
             <code>{{ venta.referencia_pago }}</code>
           </div>
           {% endif %}
           {% if venta.fecha_estimada_pago %}
-          <div class="col-12">
+          <div class="col-12 mt-2">
             <div class="text-muted small">F. estimada de pago</div>
-            {{ venta.fecha_estimada_pago|date:"d/m/Y" }}
+            <span class="text-warning fw-bold">{{ venta.fecha_estimada_pago|date:"d/m/Y" }}</span>
           </div>
+          {% endif %}
           {% endif %}
         </div>
       </div>
@@ -110,7 +115,6 @@
     {% endif %}
   </div>
 
-  <!-- Productos -->
   <div class="col-lg-8">
     <div class="card">
       <div class="card-header">Productos vendidos</div>
@@ -127,7 +131,7 @@
             </tr>
           </thead>
           <tbody>
-            {% for d in detalles %}
+            {% for d in venta.detalles.all %}
             <tr>
               <td>
                 <strong>{{ d.producto.nombre }}</strong>
@@ -140,6 +144,12 @@
               <td class="text-end">Bs. {{ d.precio_unitario|floatformat:2 }}</td>
               <td class="text-end">Bs. {{ d.subtotal|floatformat:2 }}</td>
               {% endif %}
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="{% if user.es_admin %}4{% else %}2{% endif %}" class="text-center text-muted py-4">
+                No hay productos registrados en esta venta.
+              </td>
             </tr>
             {% endfor %}
           </tbody>

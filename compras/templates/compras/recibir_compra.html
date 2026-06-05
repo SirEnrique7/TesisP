@@ -6,141 +6,173 @@
 <style>
   #fecha-venc-wrapper { display: none; }
   .tabla-recepcion th, .tabla-recepcion td { vertical-align: middle; }
-  .diff-negativo { color: #dc2626; font-weight: 600; }
+  .diff-negativo { color: #dc2626; font-weight: bold; background-color: #fee2e2; }
+  .diff-positivo { color: #15803d; font-weight: bold; background-color: #dcfce7; }
 </style>
 {% endblock %}
 
 {% block contenido %}
-<form method="post">
-{% csrf_token %}
-{{ formset.management_form }}
+<form method="post" id="form-recepcion-mercancia">
+  {% csrf_token %}
+  {{ formset.management_form }}
 
-<div class="row g-3">
+  <div class="row g-3 animate__animated animate__fadeIn">
 
-  <!-- Datos de recepción y pago -->
-  <div class="col-lg-4">
-    <div class="card">
-      <div class="card-header">Datos de recepción y pago</div>
-      <div class="card-body">
+    <div class="col-lg-4">
+      <div class="card shadow-sm border-start border-4 border-primary">
+        <div class="card-header fw-bold bg-light">Datos de recepción y pago</div>
+        <div class="card-body">
 
-        <div class="mb-3">
-          <label class="form-label fw-semibold">{{ form_recepcion.referencia_documento.label }}
-            <span class="text-danger">*</span>
-          </label>
-          {{ form_recepcion.referencia_documento }}
-          <div class="form-text">Obligatorio: nro. factura, nota de entrega o transferencia.</div>
-          {% if form_recepcion.referencia_documento.errors %}
-          <div class="text-danger small">{{ form_recepcion.referencia_documento.errors }}</div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">{{ form_recepcion.referencia_documento.label }}
+              <span class="text-danger">*</span>
+            </label>
+            {{ form_recepcion.referencia_documento }}
+            <div class="form-text small text-muted">Nro. de factura, nota de entrega o guía de despacho del proveedor.</div>
+            {% if form_recepcion.referencia_documento.errors %}
+            <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle-fill me-1"></i>{{ form_recepcion.referencia_documento.errors.as_text }}</div>
+            {% endif %}
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">{{ form_recepcion.fecha_recepcion.label }}</label>
+            {{ form_recepcion.fecha_recepcion }}
+            {% if form_recepcion.fecha_recepcion.errors %}
+            <div class="text-danger small mt-1">{{ form_recepcion.fecha_recepcion.errors }}</div>
+            {% endif %}
+          </div>
+
+          <hr class="text-muted opacity-25">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">{{ form_recepcion.modalidad_pago.label }}</label>
+            {{ form_recepcion.modalidad_pago }}
+          </div>
+
+          <div class="mb-3" id="fecha-venc-wrapper">
+            <label class="form-label fw-semibold text-primary">{{ form_recepcion.fecha_vencimiento.label }} <span class="text-danger">*</span></label>
+            {{ form_recepcion.fecha_vencimiento }}
+            {% if form_recepcion.fecha_vencimiento.errors %}
+            <div class="text-danger small mt-1"><i class="bi bi-calendar-x-fill me-1"></i>{{ form_recepcion.fecha_vencimiento.errors.as_text }}</div>
+            {% endif %}
+          </div>
+
+          {% if form_recepcion.non_field_errors %}
+          <div class="alert alert-danger py-2 small">{{ form_recepcion.non_field_errors }}</div>
           {% endif %}
-        </div>
 
-        <div class="mb-3">
-          <label class="form-label fw-semibold">{{ form_recepcion.fecha_recepcion.label }}</label>
-          {{ form_recepcion.fecha_recepcion }}
-        </div>
-
-        <hr>
-
-        <div class="mb-3">
-          <label class="form-label fw-semibold">{{ form_recepcion.modalidad_pago.label }}</label>
-          {{ form_recepcion.modalidad_pago }}
-        </div>
-
-        <div class="mb-3" id="fecha-venc-wrapper">
-          <label class="form-label fw-semibold">{{ form_recepcion.fecha_vencimiento.label }}</label>
-          {{ form_recepcion.fecha_vencimiento }}
-          {% if form_recepcion.fecha_vencimiento.errors %}
-          <div class="text-danger small">{{ form_recepcion.fecha_vencimiento.errors }}</div>
-          {% endif %}
-        </div>
-
-        {% if form_recepcion.non_field_errors %}
-        <div class="alert alert-danger">{{ form_recepcion.non_field_errors }}</div>
-        {% endif %}
-
-        <div class="alert alert-info py-2" style="font-size:.82rem">
-          <i class="bi bi-info-circle me-1"></i>
-          <strong>Contado:</strong> se marca como pagado inmediatamente.<br>
-          <strong>Crédito:</strong> se genera una cuenta por pagar al proveedor.
+          <div class="alert alert-info py-2 mb-0" style="font-size:.82rem">
+            <i class="bi bi-info-circle-fill me-1 text-primary"></i>
+            <strong>Contado:</strong> Libera la transacción y se asume liquidada.<br>
+            <strong>Crédito:</strong> Genera pasivo automático en Cuentas por Pagar.
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Tabla de cantidades recibidas -->
-  <div class="col-lg-8">
-    <div class="card">
-      <div class="card-header">Verificación de cantidades</div>
-      <div class="card-body p-0">
-        <table class="table tabla-recepcion mb-0">
-          <thead>
-            <tr>
-              <th>Producto</th>
-              <th class="text-center">Pedido</th>
-              <th class="text-center" style="width:130px">Recibido</th>
-              <th class="text-center">Diferencia</th>
-              <th class="text-end">Precio unit.</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for f, d in formset_detalle %}
-            {{ f.id }}
-            <tr>
-              <td>
-                <strong>{{ d.producto.nombre }}</strong>
-                <div class="text-muted" style="font-size:.75rem"><code>{{ d.producto.codigo }}</code></div>
-              </td>
-              <td class="text-center">{{ d.cantidad_pedida }}</td>
-              <td class="text-center">{{ f.cantidad_recibida }}</td>
-              <td class="text-center" id="diff-{{ forloop.counter }}">—</td>
-              <td class="text-end">Bs. {{ d.precio_unitario|floatformat:2 }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+    <div class="col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-header fw-bold bg-light">Verificación física de cantidades</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover tabla-recepcion align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Producto</th>
+                  <th class="text-center" style="width: 100px;">Pedido</th>
+                  <th class="text-center" style="width: 140px;">Recibido</th>
+                  <th class="text-center" style="width: 120px;">Diferencia</th>
+                  <th class="text-end" style="width: 130px;">Precio unit.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for f, d in formset_detalle %}
+                <tr>
+                  <td>
+                    {{ f.id }}
+                    <span class="fw-semibold text-dark">{{ d.producto.nombre }}</span>
+                    <div class="text-muted" style="font-size:.75rem"><code>{{ d.producto.codigo }}</code></div>
+                  </td>
+                  <td class="text-center fw-bold text-secondary target-pedido">{{ d.cantidad_pedida }}</td>
+                  <td class="text-center">
+                    {{ f.cantidad_recibida }}
+                    {% if f.cantidad_recibida.errors %}
+                    <div class="text-danger" style="font-size: 0.7rem; font-weight: 600;">
+                      {{ f.cantidad_recibida.errors.as_text }}
+                    </div>
+                    {% endif %}
+                  </td>
+                  <td class="text-center fw-bold js-diff-cell">—</td>
+                  <td class="text-end text-muted">Bs. {{ d.precio_unitario|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 mt-3 justify-content-end">
+        <a href="{% url 'compras:detalle_compra' compra.pk %}" class="btn btn-outline-secondary px-4">
+          Cancelar
+        </a>
+        <button type="submit" class="btn btn-primary px-4">
+          <i class="bi bi-box-arrow-in-down me-1"></i>Confirmar registro de ingreso
+        </button>
       </div>
     </div>
 
-    <div class="d-flex gap-2 mt-3 justify-content-end">
-      <a href="{% url 'compras:detalle_compra' compra.pk %}"
-         class="btn btn-outline-secondary">Cancelar</a>
-      <button type="submit" class="btn btn-primary">
-        <i class="bi bi-box-arrow-in-down me-1"></i>Confirmar recepción
-      </button>
-    </div>
   </div>
-
-</div>
 </form>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Mostrar / ocultar fecha de vencimiento según modalidad
-const modalidadSel = document.getElementById('id_modalidad_pago');
-const vencWrapper  = document.getElementById('fecha-venc-wrapper');
-function toggleVenc() {
-  vencWrapper.style.display = modalidadSel.value === 'credito' ? 'block' : 'none';
-}
-modalidadSel?.addEventListener('change', toggleVenc);
-toggleVenc();
-
-// Calcular diferencia en tiempo real
-document.querySelectorAll('[name$="-cantidad_recibida"]').forEach((input, i) => {
-  const pedidoCel = input.closest('tr').querySelectorAll('td')[1];
-  const diffCel   = document.getElementById(`diff-${i + 1}`);
-
-  function actualizarDiff() {
-    const pedido   = parseInt(pedidoCel?.textContent) || 0;
-    const recibido = parseInt(input.value) || 0;
-    const diff     = recibido - pedido;
-    if (diffCel) {
-      diffCel.textContent = diff === 0 ? '✓' : diff;
-      diffCel.className   = diff < 0 ? 'text-center diff-negativo' : 'text-center text-success';
+document.addEventListener('DOMContentLoaded', function() {
+  // Manejo dinámico de Modalidad de Pago
+  // Se añade soporte tanto para id directo como con prefijo común de Django
+  const modalidadSel = document.getElementById('id_modalidad_pago') || document.querySelector('[id$="-modalidad_pago"]');
+  const vencWrapper   = document.getElementById('fecha-venc-wrapper');
+  
+  function toggleVenc() {
+    if (modalidadSel && vencWrapper) {
+      vencWrapper.style.display = modalidadSel.value === 'credito' ? 'block' : 'none';
     }
   }
-  input.addEventListener('input', actualizarDiff);
-  actualizarDiff();
+  
+  modalidadSel?.addEventListener('change', toggleVenc);
+  toggleVenc(); // Disparo inicial
+
+  // CORRECCIÓN JS: Ubicación relativa en el árbol del DOM para evitar errores de desfase por índices fijos
+  document.querySelectorAll('[name$="-cantidad_recibida"]').forEach((input) => {
+    const fila = input.closest('tr');
+    if (!fila) return;
+    
+    const pedidoCel = fila.querySelector('.target-pedido');
+    const diffCel   = fila.querySelector('.js-diff-cell');
+
+    function actualizarDiff() {
+      const pedido   = parseInt(pedidoCel?.textContent) || 0;
+      const recibido = parseInt(input.value) || 0;
+      const diff     = recibido - pedido;
+      
+      if (diffCel) {
+        if (diff === 0) {
+          diffCel.textContent = '✓';
+          diffCel.className = 'text-center text-success';
+        } else if (diff < 0) {
+          diffCel.textContent = diff;
+          diffCel.className = 'text-center rounded py-1 diff-negativo';
+        } else {
+          diffCel.textContent = `+${diff}`;
+          diffCel.className = 'text-center rounded py-1 diff-positivo';
+        }
+      }
+    }
+    
+    input.addEventListener('input', actualizarDiff);
+    actualizarDiff(); // Ejecución en carga inicial por si el formset recarga con datos
+  });
 });
 </script>
 {% endblock %}

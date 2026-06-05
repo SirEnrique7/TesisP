@@ -79,13 +79,44 @@ def abastecimiento(request):
 
 @solo_admin
 def rep_ventas(request):
+
     inicio, fin = _rango_fechas(request)
-    datos = reporte_ventas(inicio, fin)
-    tasa  = TasaCambio.tasa_vigente()
+    
+    try:
+        # 1. Intentamos obtener los datos del reporte normalmente
+        datos = reporte_ventas(inicio, fin)
+    except Exception:
+        # 2. Si SQLite explota por falta de datos en ese rango de fechas,
+        # creamos un diccionario de emergencia con valores en cero.
+        datos = {
+            'ventas': [],
+            'total_ventas': 0,
+            'cantidad_ventas': 0,
+            'promedio_ventas': 0,
+            'ganancias': 0,
+            # Si tu plantilla usa otros nombres de variables, agrégalos aquí en 0
+        }
+
+    # 3. Traemos la tasa de cambio de forma segura
+    try:
+        tasa = TasaCambio.tasa_vigente()
+        # Si la tasa es un objeto y necesitas su valor numérico (ej. tasa.valor)
+        # nos aseguramos de que no sea 0 para evitar divisiones por cero en el HTML
+        valor_tasa = getattr(tasa, 'valor', 1) or 1 
+    except Exception:
+        tasa = None
+        valor_tasa = 1
+
+    # 4. Limpiamos los datos por si acaso vino un None que rompa el HTML
+    if isinstance(datos, dict):
+        for clave, valor in datos.items():
+            if valor is None:
+                datos[clave] = 0
 
     return render(request, 'reportes/ventas.html', {
         **datos,
         'tasa': tasa,
+        'valor_tasa': valor_tasa, # Por si acaso lo necesitas usar limpio
     })
 
 

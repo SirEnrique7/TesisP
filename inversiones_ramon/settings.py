@@ -195,3 +195,30 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # IVA CONFIGURABLE (porcentaje venezolano actual)
 # ─────────────────────────────────────────────
 IVA_PORCENTAJE = 16    # % — ajustar si cambia la ley
+
+# ==============================================================================
+# CONFIGURACIÓN DE LOGS PARA DETECTAR ERRORES OCULTOS EN LA BASE DE DATOS
+# ==============================================================================
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django.db.backends': {
+            'level': 'DEBUG',
+            'handlers': ['console'],
+            'propagate': False,
+        },
+    },
+}

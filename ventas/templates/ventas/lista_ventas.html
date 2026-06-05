@@ -33,7 +33,6 @@
 </div>
 {% endif %}
 
-<!-- Filtros -->
 <div class="card mb-3">
   <div class="card-body py-2">
     <form method="get" class="row g-2 align-items-center">
@@ -61,7 +60,6 @@
   </div>
 </div>
 
-<!-- Tabla -->
 <div class="card">
   <div class="card-body p-0">
     <table class="table table-hover mb-0">
@@ -113,12 +111,14 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="8" class="text-center text-muted py-5">
+          <td colspan="{% if user.es_admin %}8{% else %}6{% endif %}" class="text-center text-muted py-5">
             <i class="bi bi-receipt fs-1 d-block mb-2"></i>
-            No hay ventas registradas.
+            No hay ventas registradas que coincidan con la búsqueda.
+            {% if user.es_admin %}
             <a href="{% url 'ventas:crear_venta' %}" class="btn btn-primary btn-sm ms-2">
               Registrar primera venta
             </a>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}

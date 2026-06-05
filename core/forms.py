@@ -8,7 +8,7 @@ from django.contrib.auth.forms import (
 )
 from django.core.exceptions import ValidationError
 from .models import Usuario
-
+import re
 
 # ─────────────────────────────────────────────
 # 1. LOGIN personalizado
@@ -87,9 +87,19 @@ class UsuarioCrearForm(forms.ModelForm):
         return email
 
     def clean_cedula(self):
-        cedula = self.cleaned_data.get('cedula')
+        cedula = self.cleaned_data.get('cedula', '')
+        
+        # 1. Limpiamos y estandarizamos (mayúsculas y sin espacios)
+        cedula = cedula.upper().strip()
+        
+        # 2. Validamos el formato con la expresión regular
+        if not re.match(r'^[VEJ]-\d+$', cedula):
+            raise ValidationError('El formato debe ser V-12345678, E-12345678 o J-12345678.')
+        
+        # 3. Consultamos la base de datos (búsqueda general)
         if Usuario.objects.filter(cedula=cedula).exists():
             raise ValidationError('Ya existe un usuario con esta cédula.')
+            
         return cedula
 
     def save(self, commit=True):
@@ -131,6 +141,23 @@ class UsuarioEditarForm(forms.ModelForm):
         if qs.exists():
             raise ValidationError('Ya existe otro usuario con este correo.')
         return email
+    
+    def clean_cedula(self):
+        cedula = self.cleaned_data.get('cedula', '')
+        
+        # 1. Limpiamos y estandarizamos (mayúsculas y sin espacios accidentales)
+        cedula = cedula.upper().strip()
+        
+        # 2. Validamos el formato
+        if not re.match(r'^[VEJ]-\d+$', cedula):
+            raise ValidationError('El formato debe ser V-12345678, E-12345678 o J-12345678.')
+        
+        # 3. Consultamos la base de datos usando la cédula ya corregida
+        qs = Usuario.objects.filter(cedula=cedula).exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise ValidationError('Ya existe otro usuario con esta cédula.')
+            
+        return cedula
 
 
 # ─────────────────────────────────────────────

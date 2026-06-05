@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════
-# FORMS — Módulo Ventas
+# FORMS — Módulo Ventas (Optimizado para Pylance)
 # ══════════════════════════════════════════════════════════════
 
 from django import forms
@@ -8,9 +8,32 @@ from django.core.exceptions import ValidationError
 from .models import Venta, DetalleVenta
 from inventario.models import Producto
 from core.models_bimonetario import Cliente
+from django.core.validators import RegexValidator, MinLengthValidator, MaxLengthValidator
+
 
 
 class VentaForm(forms.ModelForm):
+    
+    referencia_pago = forms.CharField(
+        required=False,
+        validators=[
+            RegexValidator(
+                regex=r'^\d+$',
+                message='La referencia de pago debe contener solo números.'
+            ),
+            MinLengthValidator(4, message='La referencia debe tener al menos 4 dígitos.'),
+            MaxLengthValidator(21, message='La referencia no puede exceder los 21 dígitos.')
+        ],
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'id': 'id_referencia_pago',
+            'placeholder': 'Nro. de operación, transferencia o pago móvil',
+            'inputmode': 'numeric',
+            'maxlength': '21',  # Bloquea el tipeo en el navegador pasando los 21 caracteres
+        }),
+        label='Referencia de pago'
+    )
+
     class Meta:
         model  = Venta
         fields = ['cliente', 'metodo_pago', 'referencia_pago',
@@ -20,9 +43,10 @@ class VentaForm(forms.ModelForm):
                 'class': 'form-select', 'id': 'id_cliente'}),
             'metodo_pago': forms.Select(attrs={
                 'class': 'form-select', 'id': 'id_metodo_pago'}),
-            'referencia_pago': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Nro. de operación, transferencia o pago móvil'}),
+            
+            # CAMBIO: La línea vieja de 'referencia_pago' que estaba aquí se ELIMINA 
+            # porque ya la configuramos arriba con su validador.
+            
             'fecha_estimada_pago': forms.DateInput(
                 format='%Y-%m-%d',
                 attrs={'class': 'form-control', 'type': 'date',
@@ -41,9 +65,14 @@ class VentaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['cliente'].queryset    = Cliente.objects.all().order_by('apellido')
-        self.fields['cliente'].required    = False
-        self.fields['cliente'].empty_label = '— Sin cliente registrado —'
+        
+        # SOLUCIÓN PYLANCE: Aseguramos al editor que tratamos con un ModelChoiceField
+        cliente_field = self.fields.get('cliente')
+        if isinstance(cliente_field, forms.ModelChoiceField):
+            cliente_field.queryset = Cliente.objects.all().order_by('apellido')
+            cliente_field.empty_label = '— Sin cliente registrado —'
+            
+        self.fields['cliente'].required = False
         self.fields['referencia_pago'].required = False
 
     def clean(self):
@@ -61,7 +90,6 @@ class VentaForm(forms.ModelForm):
                 self.add_error('fecha_estimada_pago',
                     'Para ventas a crédito debe indicar la fecha estimada de pago.')
 
-        # Referencia obligatoria para todos los métodos excepto crédito/fiado
         if metodo != 'credito' and not ref:
             self.add_error('referencia_pago',
                 'Debe ingresar la referencia del pago realizado.')
@@ -90,12 +118,18 @@ class DetalleVentaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['producto'].queryset = (
-            Producto.objects.filter(activo=True, stock_actual__gt=0)
-            .order_by('nombre'))
-        self.fields['producto'].empty_label  = '— Seleccionar producto —'
-        self.fields['producto'].required     = False
-        self.fields['cantidad'].required     = False
+        
+        # SOLUCIÓN PYLANCE: Aseguramos al editor que tratamos con un ModelChoiceField
+        producto_field = self.fields.get('producto')
+        if isinstance(producto_field, forms.ModelChoiceField):
+            producto_field.queryset = (
+                Producto.objects.filter(activo=True, stock_actual__gt=0)
+                .order_by('nombre')
+            )
+            producto_field.empty_label = '— Seleccionar producto —'
+            
+        self.fields['producto'].required = False
+        self.fields['cantidad'].required = False
         self.fields['precio_unitario'].required = False
 
     def clean(self):
@@ -104,7 +138,6 @@ class DetalleVentaForm(forms.ModelForm):
         cantidad = cleaned.get('cantidad')
         precio   = cleaned.get('precio_unitario')
 
-        # Fila completamente vacía → se ignora
         if not producto and not cantidad and not precio:
             return cleaned
 
@@ -121,9 +154,6 @@ class DetalleVentaForm(forms.ModelForm):
                     f'Stock insuficiente. Disponible: {producto.stock_actual} unidades.')
         return cleaned
 
-    # CORRECCIÓN: has_changed no puede usar cleaned_data (no existe aún en ese punto)
-    # Django lo llama antes de la validación para saber si la fila fue tocada.
-    # Usamos los datos crudos del POST en su lugar.
     def has_changed(self):
         producto_key = self.add_prefix('producto')
         raw = self.data.get(producto_key, '')

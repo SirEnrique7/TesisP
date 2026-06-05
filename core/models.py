@@ -169,8 +169,7 @@ class AuditoriaAccion(models.Model):
         raise ValueError('Los registros de auditoría no pueden eliminarse.')
 
     @classmethod
-    def registrar(cls, usuario, accion, descripcion='', request=None,
-                  objeto_tipo='', objeto_id=None):
+    def registrar(cls, usuario, accion, descripcion='', request=None, objeto_tipo='', objeto_id=None):
         ip = None
         if request:
             x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')

@@ -59,6 +59,7 @@ class Producto(models.Model):
 
     @property
     def cantidad_sugerida_pedido(self):
+        from ventas.models import DetalleVenta
         from datetime import date, timedelta
         from django.db.models import Sum
         hace_7_dias = date.today() - timedelta(days=7)
