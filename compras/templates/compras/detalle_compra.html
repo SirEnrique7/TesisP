@@ -1,5 +1,5 @@
 {% extends 'core/base.html' %}
-{% block titulo %}Orden {{ compra.numero_referencia }}{% endblock %}
+{% block titulo %}Orden {{ compra.numero_referencia }} — Inversiones Ramón{% endblock %}
 {% block topbar_titulo %}{{ compra.numero_referencia }} — {{ compra.proveedor.nombre }}{% endblock %}
 
 {% block topbar_acciones %}
@@ -57,26 +57,26 @@
           </div>
           <div class="col-6">
             <div class="text-muted small">Creada por</div>
-            <span class="small">{{ compra.creada_por.get_nombre_completo|default:compra.creada_por.username }}</span>
+            <span class="small text-dark fw-semibold">{{ compra.creada_por.get_nombre_completo|default:compra.creada_por.username }}</span>
           </div>
           <div class="col-6">
             <div class="text-muted small">F. creación</div>
-            <span class="small">{{ compra.fecha_creacion|date:"d/m/Y H:i" }}</span>
+            <span class="small text-secondary">{{ compra.fecha_creacion|date:"d/m/Y H:i" }}</span>
           </div>
           <div class="col-6">
             <div class="text-muted small">F. estimada entrega</div>
-            <span class="small">{{ compra.fecha_estimada|date:"d/m/Y"|default:"—" }}</span>
+            <span class="small text-secondary">{{ compra.fecha_estimada|date:"d/m/Y"|default:"—" }}</span>
           </div>
           
           {% if compra.fecha_aprobacion %}
           <div class="col-12"><hr class="my-1 text-muted opacity-25"></div>
           <div class="col-6">
             <div class="text-muted small">Aprobada por</div>
-            <span class="small">{{ compra.aprobada_por.get_nombre_completo|default:"—" }}</span>
+            <span class="small text-secondary">{{ compra.aprobada_por.get_nombre_completo|default:"—" }}</span>
           </div>
           <div class="col-6">
             <div class="text-muted small">F. aprobación</div>
-            <span class="small">{{ compra.fecha_aprobacion|date:"d/m/Y H:i" }}</span>
+            <span class="small text-secondary">{{ compra.fecha_aprobacion|date:"d/m/Y H:i" }}</span>
           </div>
           {% endif %}
           
@@ -84,7 +84,7 @@
           <div class="col-12"><hr class="my-1 text-muted opacity-25"></div>
           <div class="col-6">
             <div class="text-muted small">F. recepción real</div>
-            <span class="small">{{ compra.fecha_recepcion|date:"d/m/Y H:i" }}</span>
+            <span class="small text-secondary">{{ compra.fecha_recepcion|date:"d/m/Y H:i" }}</span>
           </div>
           <div class="col-6">
             <div class="text-muted small">Referencia doc.</div>
@@ -101,7 +101,9 @@
           {% if compra.motivo_rechazo %}
           <div class="col-12">
             <div class="text-muted small mt-1">Motivo de rechazo</div>
-            <div class="p-2 bg-danger-subtle text-danger rounded small fw-semibold">{{ compra.motivo_rechazo }}</div>
+            <div class="p-2 bg-danger-subtle text-danger rounded small fw-semibold">
+              <i class="bi bi-exclamation-circle me-1"></i>{{ compra.motivo_rechazo }}
+            </div>
           </div>
           {% endif %}
         </div>
@@ -130,7 +132,7 @@
             <div class="alert alert-info py-1 px-2 mb-0 small d-flex align-items-center justify-content-between">
               <span><i class="bi bi-calendar-event me-1"></i>Vence: <strong>{{ compra.fecha_vencimiento|date:"d/m/Y" }}</strong></span>
               {% if compra.cuenta_por_pagar %}
-              <a href="{% url 'core:detalle_cuenta_pagar' compra.cuenta_por_pagar.pk %}" class="btn btn-xs btn-primary py-0 px-1 style-small">
+              <a href="{% url 'core:detalle_cuenta_pagar' compra.cuenta_por_pagar.pk %}" class="btn btn-primary py-0 px-2 fw-semibold" style="font-size: 0.75rem;">
                 Ver cuenta
               </a>
               {% endif %}

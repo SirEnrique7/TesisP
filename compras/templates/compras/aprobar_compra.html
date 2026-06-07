@@ -1,5 +1,5 @@
 {% extends 'core/base.html' %}
-{% block titulo %}Aprobar orden {{ compra.numero_referencia }}{% endblock %}
+{% block titulo %}Aprobar orden {{ compra.numero_referencia }} — Inversiones Ramón{% endblock %}
 {% block topbar_titulo %}Aprobar / Rechazar orden{% endblock %}
 
 {% block contenido %}
@@ -27,6 +27,15 @@
       <div class="card-body">
         <form method="post" id="aprobar-form">
           {% csrf_token %}
+          
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger py-2 small mb-3">
+            {% for error in form.non_field_errors %}
+              <i class="bi bi-exclamation-triangle me-1"></i> {{ error }}
+            {% endfor %}
+          </div>
+          {% endif %}
+          
           <div class="mb-3">
             {% for radio in form.decision %}
             <div class="form-check mb-2">
@@ -37,7 +46,9 @@
             </div>
             {% endfor %}
             {% if form.decision.errors %}
-            <div class="text-danger small">{{ form.decision.errors }}</div>
+            <div class="text-danger small">
+              {% for error in form.decision.errors %}{{ error }}{% endfor %}
+            </div>
             {% endif %}
           </div>
           
@@ -46,16 +57,14 @@
             {{ form.motivo_rechazo }}
             {% if form.motivo_rechazo.errors %}
             <div class="text-danger small mt-1">
-              <i class="bi bi-exclamation-circle-fill me-1"></i>{{ form.motivo_rechazo.errors.as_text }}
+              {% for error in form.motivo_rechazo.errors %}
+                <i class="bi bi-exclamation-circle-fill me-1"></i>{{ error }}
+              {% endfor %}
             </div>
             {% endif %}
           </div>
           
-          {% if form.non_field_errors %}
-          <div class="alert alert-danger py-2 small">{{ form.non_field_errors }}</div>
-          {% endif %}
-          
-          <div class="d-flex gap-2 pt-2 border-top">
+          <div class="d-flex gap-2 pt-3 border-top">
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-circle me-1"></i>Confirmar decisión
             </button>
@@ -137,8 +146,7 @@ document.addEventListener('DOMContentLoaded', function() {
     r.addEventListener('change', verificarEstado);
   });
 
-  // CORRECCIÓN UX: Evaluar el estado inmediatamente al cargar el DOM 
-  // (Por si la página recarga debido a que faltó ingresar el motivo)
+  // Evaluar el estado inmediatamente al cargar el DOM (Resistente a recargas por fallos de validación)
   verificarEstado();
 });
 </script>

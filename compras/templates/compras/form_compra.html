@@ -1,5 +1,5 @@
 {% extends 'core/base.html' %}
-{% block titulo %}Nueva orden de compra{% endblock %}
+{% block titulo %}Nueva orden de compra — Inversiones Ramón{% endblock %}
 {% block topbar_titulo %}Nueva orden de compra{% endblock %}
 
 {% block extra_css %}
@@ -24,20 +24,28 @@
 
   <div class="col-lg-4">
     <div class="card shadow-sm">
-      <div class="card-header fw-bold">Datos de la orden</div>
+      <div class="card-header fw-bold bg-light">Datos de la orden</div>
       <div class="card-body">
         <div class="mb-3">
           <label class="form-label fw-semibold">{{ form.proveedor.label }}</label>
           {{ form.proveedor }}
-          {% if form.proveedor.errors %}<div class="text-danger small">{{ form.proveedor.errors }}</div>{% endif %}
+          {% if form.proveedor.errors %}<div class="text-danger small mt-1">{{ form.proveedor.errors }}</div>{% endif %}
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold">Referencia del Documento</label>
           {{ form.referencia_documento }}
-          {% if form.referencia_documento.errors %}<div class="text-danger small">{{ form.referencia_documento.errors }}</div>{% endif %}
+          {% if form.referencia_documento.errors %}<div class="text-danger small mt-1">{{ form.referencia_documento.errors }}</div>{% endif %}
         </div>
-        {% if form.non_field_errors %}
-        <div class="alert alert-danger py-2 small">{{ form.non_field_errors }}</div>
+        
+        {% if form.non_field_errors or formset.non_field_errors %}
+        <div class="alert alert-danger py-2 small mb-0">
+          {% for error in form.non_field_errors %}
+            <div><i class="bi bi-exclamation-triangle-fill me-1"></i> {{ error }}</div>
+          {% endfor %}
+          {% for error in formset.non_field_errors %}
+            <div><i class="bi bi-exclamation-octagon-fill me-1"></i> {{ error }}</div>
+          {% endfor %}
+        </div>
         {% endif %}
       </div>
     </div>
@@ -56,7 +64,7 @@
             {% if p.en_tendencia %}<span class="badge bg-warning text-dark ms-1">EN TENDENCIA</span>{% endif %}
           </div>
         </div>
-        <button type="button" class="btn btn-xs btn-outline-primary btn-agregar-sugerido"
+        <button type="button" class="btn btn-sm btn-outline-primary btn-agregar-sugerido"
                 data-id="{{ p.pk }}"
                 data-cantidad="{{ p.cantidad_sugerida_pedido }}"
                 data-precio="{{ p.precio_compra }}"
@@ -71,7 +79,7 @@
 
   <div class="col-lg-8">
     <div class="card shadow-sm">
-      <div class="card-header d-flex justify-content-between align-items-center fw-bold">
+      <div class="card-header d-flex justify-content-between align-items-center fw-bold bg-light">
         Productos Solicitados
         <button type="button" class="btn btn-sm btn-outline-primary" id="btn-agregar">
           <i class="bi bi-plus-lg me-1"></i>Agregar producto
@@ -92,19 +100,21 @@
               <div class="col-md-5">
                 <label class="form-label small fw-semibold">Producto</label>
                 {{ f.producto }}
-                {% if f.producto.errors %}<div class="text-danger small">{{ f.producto.errors }}</div>{% endif %}
+                {% if f.producto.errors %}<div class="text-danger small mt-1">{{ f.producto.errors }}</div>{% endif %}
               </div>
               <div class="col-md-3">
                 <label class="form-label small fw-semibold">Cantidad</label>
                 {{ f.cantidad }}
+                {% if f.cantidad.errors %}<div class="text-danger small mt-1">{{ f.cantidad.errors }}</div>{% endif %}
               </div>
               <div class="col-md-4">
                 <label class="form-label small fw-semibold">Precio unit. (Bs.)</label>
                 {{ f.precio_unitario }}
+                {% if f.precio_unitario.errors %}<div class="text-danger small mt-1">{{ f.precio_unitario.errors }}</div>{% endif %}
               </div>
             </div>
             <div class="subtotal-row text-end">Subtotal: <strong class="subtotal-val">Bs. 0.00</strong></div>
-            {% if f.DELETE %}<div style="display:none">{{ f.DELETE }}</div>{% endif %}
+            {% if f.DELETE %}<div style="display:none" class="delete-checkbox-wrapper">{{ f.DELETE }}</div>{% endif %}
           </div>
           {% endif %}
           {% endfor %}
@@ -161,10 +171,36 @@
 
 {% block extra_js %}
 <script>
-let totalFormsEl = document.getElementById('id_form-TOTAL_FORMS');
-let formCount = parseInt(totalFormsEl.value);
+const totalFormsEl = document.getElementById('id_form-TOTAL_FORMS');
 
-// Inyectar clases de control necesarias para el cálculo matemático dinámico
+// RECTIFICACIÓN LOGICIAL: Algoritmo de reindexación secuencial para proteger el Management Form de Django
+function reindexarFormset() {
+  const filas = document.querySelectorAll('#formset-container .formset-row');
+  let indexActivo = 0; // CORREGIDO: Sin espacios
+
+  filas.forEach((fila) => {
+    const delCheckbox = fila.querySelector('input[type="checkbox"][name$="-DELETE"]');
+    
+    fila.querySelectorAll('input, select, textarea').forEach(el => {
+      if (el.name && el !== delCheckbox) {
+        el.name = el.name.replace(/form-\d+-/, `form-${indexActivo}-`);
+      }
+      if (el.id && el !== delCheckbox) {
+        el.id = el.id.replace(/id_form-\d+-/, `id_form-${indexActivo}-`);
+      }
+    });
+    
+    if (delCheckbox) {
+      delCheckbox.name = `form-${indexActivo}-DELETE`;
+      delCheckbox.id = `id_form-${indexActivo}-DELETE`;
+    }
+
+    indexActivo++;
+  });
+
+  totalFormsEl.value = indexActivo;
+}
+
 function inicializarClasesNativas() {
   document.querySelectorAll('#formset-container .formset-row').forEach(row => {
     const select = row.querySelector('select');
@@ -181,6 +217,7 @@ function inicializarClasesNativas() {
 function calcularSubtotales() {
   let totalGlobal = 0;
   document.querySelectorAll('#formset-container .formset-row').forEach(row => {
+    // Si la fila está oculta (marcada para eliminación), no suma al presupuesto estimado
     if (row.style.display === 'none') return;
     
     const cant = parseFloat(row.querySelector('.cant-field')?.value) || 0;
@@ -200,7 +237,8 @@ function clonarFila(datos = {}) {
   const container = document.getElementById('formset-container');
   const plantilla = document.getElementById('fila-plantilla').innerHTML;
   
-  let htmlFila = plantilla.replace(/__prefix__/g, formCount);
+  // Usamos un marcador temporal que luego el reindexador ordenará perfectamente
+  let htmlFila = plantilla.replace(/__prefix__/g, 'TEMP');
   
   const divDivisor = document.createElement('div');
   divDivisor.innerHTML = htmlFila;
@@ -213,8 +251,7 @@ function clonarFila(datos = {}) {
   }
   
   container.appendChild(nuevaFila);
-  formCount++;
-  totalFormsEl.value = formCount;
+  reindexarFormset();
   calcularSubtotales();
 }
 
@@ -222,13 +259,23 @@ document.getElementById('btn-agregar').addEventListener('click', () => clonarFil
 
 function eliminarFila(btn) {
   const fila = btn.closest('.formset-row');
-  const del = fila.querySelector('[name$="-DELETE"]');
+  const del = fila.querySelector('input[type="checkbox"][name$="-DELETE"]');
+  
   if (del) { 
+    // Caso de fila persistente en Base de Datos
     del.checked = true; 
     fila.style.display = 'none'; 
+    // RECTIFICACIÓN: Removemos el 'required' de los campos ocultos para que el navegador no bloquee el submit de forma invisible
+    fila.querySelectorAll('input:not([type="checkbox"]), select').forEach(el => {
+      el.removeAttribute('required');
+      el.disabled = true; // Previene que se envíen datos desactualizados
+    });
   } else {
+    // Caso de fila nueva creada en el DOM
     fila.remove();
   }
+  
+  reindexarFormset();
   calcularSubtotales();
 }
 
@@ -240,15 +287,17 @@ document.querySelectorAll('.btn-agregar-sugerido').forEach(btn => {
       precio_unitario: btn.dataset.precio,
     });
     btn.textContent = '✓ Agregado';
-    btn.className = 'btn btn-xs btn-success';
+    btn.className = 'btn btn-sm btn-success';
     btn.disabled = true;
   });
 });
 
+// Inicialización inicial de consistencia
 inicializarClasesNativas();
 if (document.querySelectorAll('#formset-container .formset-row').length === 0) {
   clonarFila();
 }
+reindexarFormset();
 calcularSubtotales();
 </script>
 {% endblock %}

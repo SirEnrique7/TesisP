@@ -28,24 +28,6 @@
               {% if form.last_name.errors %}<div class="text-danger small">{{ form.last_name.errors.as_text }}</div>{% endif %}
             </div>
             
-            <div class="col-md-6">
-              <label class="form-label fw-semibold">{{ form.cedula.label }}</label>
-              {{ form.cedula }}
-              {% if form.cedula.errors %}<div class="text-danger small">{{ form.cedula.errors.as_text }}</div>{% endif %}
-            </div>
-            
-            <div class="col-md-6">
-              <label class="form-label fw-semibold">{{ form.telefono.label }}</label>
-              {{ form.telefono }}
-              {% if form.telefono.errors %}<div class="text-danger small">{{ form.telefono.errors.as_text }}</div>{% endif %}
-            </div>
-            
-            <div class="col-12">
-              <label class="form-label fw-semibold">{{ form.email.label }}</label>
-              {{ form.email }}
-              {% if form.email.errors %}<div class="text-danger small">{{ form.email.errors.as_text }}</div>{% endif %}
-            </div>
-            
             {% if form.username %}
             <div class="col-md-6">
               <label class="form-label fw-semibold">{{ form.username.label }}</label>
@@ -53,7 +35,24 @@
               {% if form.username.errors %}<div class="text-danger small">{{ form.username.errors.as_text }}</div>{% endif %}
             </div>
             {% endif %}
-            
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">{{ form.cedula.label }}</label>
+              {{ form.cedula }}
+              {% if form.cedula.errors %}<div class="text-danger small">{{ form.cedula.errors.as_text }}</div>{% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">{{ form.email.label }}</label>
+              {{ form.email }}
+              {% if form.email.errors %}<div class="text-danger small">{{ form.email.errors.as_text }}</div>{% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">{{ form.telefono.label }}</label>
+              {{ form.telefono }}
+              {% if form.telefono.errors %}<div class="text-danger small">{{ form.telefono.errors.as_text }}</div>{% endif %}
+            </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">{{ form.rol.label }}</label>
               {{ form.rol }}

@@ -18,9 +18,8 @@
 {% block contenido %}
 <div class="row g-3">
 
-  <!-- Info principal -->
   <div class="col-lg-4">
-    <div class="card">
+    <div class="card h-100">
       <div class="card-header">Información del producto</div>
       <div class="card-body">
         <div class="mb-1 text-muted" style="font-size:.8rem">Código</div>
@@ -59,7 +58,6 @@
     </div>
   </div>
 
-  <!-- Stock -->
   <div class="col-lg-4">
     <div class="card h-100">
       <div class="card-header">Estado del stock</div>
@@ -95,11 +93,10 @@
     </div>
   </div>
 
-  <!-- Movimientos recientes -->
   <div class="col-12">
     <div class="card">
       <div class="card-header">Últimos movimientos de inventario</div>
-      <div class="card-body p-0">
+      <div class="card-body p-0 table-responsive">
         {% if movimientos %}
         <table class="table table-hover mb-0">
           <thead>

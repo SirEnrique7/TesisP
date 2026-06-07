@@ -35,10 +35,13 @@ class Usuario(AbstractUser):
 
     # ── Helpers de rol ──
     def es_admin(self):
-        return self.rol == 'admin'
+        return self.is_superuser or self.rol == 'admin'
 
     def es_encargado(self):
         return self.rol == 'encargado'
+
+    def get_rol_display(self):
+        return dict(self.ROL_CHOICES).get(self.rol, self.rol)
 
     # ── Baja lógica: nunca DELETE ──
     def dar_de_baja(self, ejecutado_por):
@@ -158,6 +161,9 @@ class AuditoriaAccion(models.Model):
     objeto_tipo    = models.CharField(max_length=50, blank=True)  # ej. 'Compra'
     objeto_id      = models.PositiveIntegerField(null=True, blank=True)
     fecha          = models.DateTimeField(auto_now_add=True)
+
+    def get_accion_display(self):
+        return dict(self.ACCION_CHOICES).get(self.accion, self.accion)
 
     # El log es inmutable: no se permite update ni delete desde el ORM
     def save(self, *args, **kwargs):

@@ -10,6 +10,7 @@ class Categoria(models.Model):
     class Meta:
         verbose_name_plural = "Categorías"
 
+
 class Proveedor(models.Model):
     DIA_CHOICES = [
         ('lunes',     'Lunes'),
@@ -25,11 +26,16 @@ class Proveedor(models.Model):
     direccion  = models.TextField(blank=True)
     empresa    = models.CharField(max_length=150, blank=True)
     dia_visita = models.CharField(max_length=15, choices=DIA_CHOICES, blank=True)
+    activo     = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.nombre} ({self.rif})"
 
+
 class Producto(models.Model):
+    # Anotación de tipo para evitar que Pylance marque 'id' como desconocido
+    id: int
+
     codigo         = models.CharField(max_length=20, unique=True, blank=True)
     nombre         = models.CharField(max_length=150)
     descripcion    = models.TextField(blank=True)
@@ -75,10 +81,14 @@ class Producto(models.Model):
     def __str__(self):
         return f"[{self.codigo}] {self.nombre}"
 
+
 class SolicitudInventario(models.Model):
+    # Anotación de tipo para evitar que Pylance marque 'id' como desconocido
+    id: int
+
     ESTADO_CHOICES = [
         ('pendiente', 'Pendiente'),
-        ('aprobada',  'Aprobada'),
+        ('aprobada',   'Aprobada'),
         ('rechazada', 'Rechazada'),
     ]
     empleado            = models.ForeignKey(
@@ -99,11 +109,12 @@ class SolicitudInventario(models.Model):
     def __str__(self):
         return f"Solicitud #{self.id} — {self.empleado} → {self.producto}"
 
+
 class MovimientoInventario(models.Model):
     TIPO_CHOICES = [
         ('entrada', 'Entrada'),
-        ('salida',  'Salida'),
-        ('ajuste',  'Ajuste'),
+        ('salida',   'Salida'),
+        ('ajuste',   'Ajuste'),
     ]
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
     tipo     = models.CharField(max_length=10, choices=TIPO_CHOICES)

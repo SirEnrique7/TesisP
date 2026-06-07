@@ -11,28 +11,28 @@ class ProductoForm(forms.ModelForm):
             'stock_actual', 'stock_minimo', 'dias_cobertura', 'activo'
         ]
         widgets = {
-            'nombre':        forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del producto'}),
-            'descripcion':   forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción opcional'}),
-            'categoria':     forms.Select(attrs={'class': 'form-select'}),
-            'proveedor':     forms.Select(attrs={'class': 'form-select'}),
-            'precio_compra': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
-            'precio_venta':  forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
-            'stock_actual':  forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
-            'stock_minimo':  forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'nombre':         forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del producto'}),
+            'descripcion':    forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción opcional'}),
+            'categoria':      forms.Select(attrs={'class': 'form-select'}),
+            'proveedor':      forms.Select(attrs={'class': 'form-select'}),
+            'precio_compra':  forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'precio_venta':   forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'stock_actual':   forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+            'stock_minimo':   forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
             'dias_cobertura': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'max': '30'}),
-            'activo':        forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'activo':         forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
         labels = {
-            'nombre':        'Nombre',
-            'descripcion':   'Descripción',
-            'categoria':     'Categoría',
-            'proveedor':     'Proveedor',
+            'nombre':         'Nombre',
+            'descripcion':    'Descripción',
+            'categoria':      'Categoría',
+            'proveedor':      'Proveedor',
             'precio_compra': 'Precio de compra (Bs)',
             'precio_venta':  'Precio de venta (Bs)',
             'stock_actual':  'Stock actual',
             'stock_minimo':  'Stock mínimo',
             'dias_cobertura': 'Días de cobertura',
-            'activo':        'Producto activo',
+            'activo':         'Producto activo',
         }
 
     def clean(self):
@@ -59,7 +59,8 @@ class CategoriaForm(forms.ModelForm):
 class ProveedorForm(forms.ModelForm):
     class Meta:
         model  = Proveedor
-        fields = ['nombre', 'rif', 'empresa', 'telefono', 'direccion', 'dia_visita']
+        # Se incluye 'activo' para permitir el control de baja lógica desde el formulario
+        fields = ['nombre', 'rif', 'empresa', 'telefono', 'direccion', 'dia_visita', 'activo']
         widgets = {
             'nombre':     forms.TextInput(attrs={'class': 'form-control'}),
             'rif':        forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'J-XXXXXXXX-X'}),
@@ -67,6 +68,16 @@ class ProveedorForm(forms.ModelForm):
             'telefono':   forms.TextInput(attrs={'class': 'form-control'}),
             'direccion':  forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'dia_visita': forms.Select(attrs={'class': 'form-select'}),
+            'activo':     forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        labels = {
+            'nombre':     'Nombre / Razón Social',
+            'rif':        'RIF',
+            'empresa':    'Empresa',
+            'telefono':   'Teléfono',
+            'direccion':  'Dirección',
+            'dia_visita': 'Día de visita',
+            'activo':     'Proveedor activo',
         }
 
 
@@ -88,8 +99,11 @@ class SolicitudInventarioForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Solo mostrar productos activos
-        self.fields['producto'].queryset = Producto.objects.filter(activo=True).order_by('nombre')
+        
+        producto_field = self.fields.get('producto')
+        # Validación estricta de tipo para blindar a Pylance contra advertencias de atributos dinámicos
+        if isinstance(producto_field, forms.ModelChoiceField):
+            producto_field.queryset = Producto.objects.filter(activo=True).order_by('nombre')
 
 
 class ResponderSolicitudForm(forms.Form):
@@ -97,9 +111,13 @@ class ResponderSolicitudForm(forms.Form):
         ('aprobada',  'Aprobar'),
         ('rechazada', 'Rechazar'),
     ]
-    decision    = forms.ChoiceField(choices=DECISION_CHOICES, widget=forms.RadioSelect)
+    # Se añade la clase 'form-check-input' para unificar la estética de los RadioSelect en todo el sistema
+    decision    = forms.ChoiceField(
+        choices=DECISION_CHOICES, 
+        widget=forms.RadioSelect(attrs={'class': 'form-check-input'})
+    )
     observacion = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2,
-                                     'placeholder': 'Razón del rechazo u observación (opcional)'})
+                                    'placeholder': 'Razón del rechazo u observación (opcional)'})
     )

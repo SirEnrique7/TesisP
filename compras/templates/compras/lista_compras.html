@@ -1,5 +1,5 @@
 {% extends 'core/base.html' %}
-{% block titulo %}Órdenes de Compra{% endblock %}
+{% block titulo %}Órdenes de Compra — Inversiones Ramón{% endblock %}
 {% block topbar_titulo %}Órdenes de compra{% endblock %}
 
 {% block topbar_acciones %}
@@ -54,10 +54,14 @@
           <tr>
             <th style="width: 110px;">Referencia</th>
             <th>Proveedor</th>
-            {% if user.es_admin %}<th>Creada por</th>{% endif %}
+            {% if user.es_admin %}
+              <th>Creada por</th>
+            {% endif %}
             <th style="width: 120px;">F. creación</th>
             <th style="width: 120px;">F. estimada</th>
-            <th class="text-end" style="width: 130px;">Total (Bs.)</th>
+            {% if user.es_admin %}
+              <th class="text-end" style="width: 130px;">Total (Bs.)</th>
+            {% endif %}
             <th style="width: 150px;">Condición Pago</th>
             <th style="width: 130px;">Estado</th>
             <th class="text-center" style="width: 100px;">Acciones</th>
@@ -69,17 +73,17 @@
             <td><code class="fw-bold">{{ c.numero_referencia }}</code></td>
             <td><span class="fw-semibold text-dark">{{ c.proveedor.nombre }}</span></td>
             {% if user.es_admin %}
-            <td><span class="small">{{ c.creada_por.get_nombre_completo|default:c.creada_por.username }}</span></td>
+              <td><span class="small text-secondary">{{ c.creada_por.get_nombre_completo|default:c.creada_por.username }}</span></td>
             {% endif %}
             <td>{{ c.fecha_creacion|date:"d/m/Y" }}</td>
             <td>{{ c.fecha_estimada|date:"d/m/Y"|default:"<span class='text-muted'>—</span>" }}</td>
+            
+            {% if user.es_admin %}
             <td class="text-end fw-semibold">
-              {% if user.es_admin %}
-                <span class="text-primary">Bs. {{ c.total|floatformat:2 }}</span>
-              {% else %}
-                <span class="text-muted small">—</span>
-              {% endif %}
+              <span class="text-primary">Bs. {{ c.total|floatformat:2 }}</span>
             </td>
+            {% endif %}
+            
             <td>
               {% if c.estado == 'recibida' %}
                 {% if c.modalidad_pago == 'credito' %}
@@ -120,7 +124,7 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="9" class="text-center text-muted py-5">
+            <td colspan="100%" class="text-center text-muted py-5">
               <i class="bi bi-cart3 fs-1 d-block mb-2 text-secondary opacity-50"></i>
               <p class="mb-1">No se encontraron órdenes de compra para los criterios seleccionados.</p>
               <a href="{% url 'compras:crear_compra' %}" class="btn btn-primary btn-sm mt-2">

@@ -4,6 +4,8 @@
 
 from django.db import models
 from django.utils import timezone
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 from decimal import Decimal
 from typing import Any
 
@@ -124,13 +126,28 @@ class DetalleCompra(models.Model):
         return self.cantidad_pedida - self.cantidad_recibida
 
     def save(self, *args, **kwargs):
-        # CORRECCIÓN DE NEGOCIO: El subtotal de la orden siempre se calcula con la cantidad solicitada
-        # para no alterar el valor contractual de la orden si el proveedor despacha incompleto.
+        # El subtotal de la orden siempre se calcula con la cantidad solicitada
         cant_a_calcular = int(self.cantidad_pedida)
         
-        # Tipado explícito para complacer los cálculos estrictos de Pylance
+        # Tipado explícito para cálculos financieros estrictos
         self.subtotal = Decimal(cant_a_calcular) * Decimal(str(self.precio_unitario))
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.producto.nombre} — pedido:{self.cantidad_pedida}/recibido:{self.cantidad_recibida}"
+
+
+# ══════════════════════════════════════════════════════════════
+# SEÑALES DE INTEGRIDAD DE LA BASE DE DATOS
+# ══════════════════════════════════════════════════════════════
+
+@receiver(post_save, sender=DetalleCompra)
+@receiver(post_delete, sender=DetalleCompra)
+def actualizar_total_compra(sender, instance, **kwargs):
+    """
+    Sincronización automática de totales:
+    Garantiza que el total de la compra se actualice automáticamente
+    si un producto es agregado, modificado o eliminado de la orden.
+    """
+    if instance.compra:
+        instance.compra.calcular_total()

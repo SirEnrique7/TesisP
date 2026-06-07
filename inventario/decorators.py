@@ -9,9 +9,13 @@ def solo_admin(view_func):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('login')
-        if request.user.rol != 'admin':
+        
+        # Se usa getattr para evitar alertas de atributo desconocido en Pylance
+        rol_usuario = getattr(request.user, 'rol', None)
+        if rol_usuario != 'admin':
             messages.error(request, 'No tienes permiso para acceder a esta sección.')
             return redirect('inventario:dashboard')
+            
         return view_func(request, *args, **kwargs)
     return wrapper
 
@@ -22,9 +26,13 @@ def solo_empleado(view_func):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('login')
-        if request.user.rol != 'empleado':
+        
+        # Se usa getattr para evitar alertas de atributo desconocido en Pylance
+        rol_usuario = getattr(request.user, 'rol', None)
+        if rol_usuario != 'empleado':
             messages.error(request, 'Esta sección es solo para empleados.')
             return redirect('inventario:dashboard')
+            
         return view_func(request, *args, **kwargs)
     return wrapper
 

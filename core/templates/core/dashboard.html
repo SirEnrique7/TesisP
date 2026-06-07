@@ -4,7 +4,6 @@
 
 {% block contenido %}
 
-<!-- Fila de stats -->
 <div class="row g-3 mb-4">
 
   <div class="col-sm-6 col-xl-3">
@@ -37,7 +36,7 @@
     </div>
   </div>
 
-  {% if puede_ver_financiero %}
+  {% if request.puede_ver_financiero %}
   <div class="col-sm-6 col-xl-3">
     <div class="stat-card">
       <div class="stat-icon verde"><i class="bi bi-cash-stack"></i></div>
@@ -51,8 +50,7 @@
 
 </div>
 
-{% if puede_ver_financiero %}
-<!-- Fila financiera (solo admin) -->
+{% if request.puede_ver_financiero %}
 <div class="row g-3 mb-4">
   <div class="col-md-4">
     <div class="stat-card">
@@ -84,7 +82,6 @@
 </div>
 {% endif %}
 
-<!-- Stock bajo -->
 {% if productos_bajo %}
 <div class="card">
   <div class="card-header d-flex align-items-center gap-2">

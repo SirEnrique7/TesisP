@@ -13,7 +13,6 @@
 
 {% block contenido %}
 
-<!-- Filtros -->
 <div class="card mb-3">
   <div class="card-body py-2">
     <form method="get" class="row g-2 align-items-center">
@@ -38,17 +37,16 @@
       </div>
       <div class="col-auto">
         <button type="submit" class="btn btn-sm btn-outline-secondary">Filtrar</button>
-        <a href="{% url 'inventario:lista_productos' %}" class="btn btn-sm btn-link">Limpiar</a>
+        <a href="{% url 'inventario:lista_productos' %}" class="btn btn-sm btn-link text-decoration-none">Limpiar</a>
       </div>
     </form>
   </div>
 </div>
 
-<!-- Tabla -->
 <div class="card">
-  <div class="card-body p-0">
+  <div class="card-body p-0 table-responsive">
     {% if productos %}
-    <table class="table table-hover mb-0">
+    <table class="table table-hover align-middle mb-0">
       <thead>
         <tr>
           <th>Código</th>
@@ -64,34 +62,41 @@
         {% for p in productos %}
         <tr>
           <td><code>{{ p.codigo }}</code></td>
-          <td>{{ p.nombre }}</td>
+          <td class="fw-semibold">{{ p.nombre }}</td>
           <td>{{ p.categoria.nombre|default:"—" }}</td>
           <td>Bs {{ p.precio_venta }}</td>
           <td>
             {% if p.stock_bajo %}
             <span class="badge bg-danger">{{ p.stock_actual }}</span>
-            <small class="text-muted">/{{ p.stock_minimo }} mín.</small>
+            <small class="text-muted d-block d-sm-inline ms-sm-1">/{{ p.stock_minimo }} mín.</small>
             {% else %}
             <span class="badge bg-success">{{ p.stock_actual }}</span>
             {% endif %}
           </td>
           <td>
-            {% if p.activo %}<span class="badge bg-success-subtle text-success">Activo</span>
-            {% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}
+            {% if p.activo %}
+            <span class="badge bg-success-subtle text-success">Activo</span>
+            {% else %}
+            <span class="badge bg-secondary-subtle text-secondary">Inactivo</span>
+            {% endif %}
           </td>
           <td class="text-end">
-            <a href="{% url 'inventario:detalle_producto' p.pk %}" class="btn btn-sm btn-outline-secondary">
-              <i class="bi bi-eye"></i>
-            </a>
-            {% if user.rol == 'admin' %}
-            <a href="{% url 'inventario:editar_producto' p.pk %}" class="btn btn-sm btn-outline-primary">
-              <i class="bi bi-pencil"></i>
-            </a>
-            {% endif %}
-            {% if user.rol == 'empleado' and p.stock_bajo %}
-            <a href="{% url 'inventario:crear_solicitud' %}?producto={{ p.pk }}"
-               class="btn btn-sm btn-warning">Solicitar</a>
-            {% endif %}
+            <div class="btn-group">
+              <a href="{% url 'inventario:detalle_producto' p.pk %}" class="btn btn-sm btn-outline-secondary" title="Ver detalles">
+                <i class="bi bi-eye"></i>
+              </a>
+              {% if user.rol == 'admin' %}
+              <a href="{% url 'inventario:editar_producto' p.pk %}" class="btn btn-sm btn-outline-primary" title="Editar">
+                <i class="bi bi-pencil"></i>
+              </a>
+              {% endif %}
+              {% if user.rol == 'empleado' and p.stock_bajo %}
+              <a href="{% url 'inventario:crear_solicitud' %}?producto={{ p.pk }}"
+                 class="btn btn-sm btn-warning" title="Solicitar reposición">
+                <i class="bi bi-send-fill"></i>
+              </a>
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -99,10 +104,10 @@
     </table>
     {% else %}
     <div class="text-center py-5 text-muted">
-      <i class="bi bi-box-seam fs-1"></i>
-      <p class="mt-2">No se encontraron productos.</p>
+      <i class="bi bi-box-seam fs-1 text-secondary d-block mb-3"></i>
+      <p class="mb-2">No se encontraron productos con los criterios de búsqueda.</p>
       {% if user.rol == 'admin' %}
-      <a href="{% url 'inventario:crear_producto' %}" class="btn btn-primary btn-sm">Crear primer producto</a>
+      <a href="{% url 'inventario:crear_producto' %}" class="btn btn-primary btn-sm mt-2">Crear primer producto</a>
       {% endif %}
     </div>
     {% endif %}
