@@ -132,7 +132,7 @@
   {% if tasa_bcv %}
   <div class="tasa-pill">
     <i class="bi bi-currency-exchange me-1"></i>
-    BCV hoy: <strong>Bs. {{ tasa_bcv|default_if_none:"—" }}</strong>
+    BCV hoy: <strong>Bs. {{ tasa_bcv.tasa_bs_usd|default_if_none:"—" }}</strong>
   </div>
   {% endif %}
 

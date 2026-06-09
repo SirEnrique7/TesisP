@@ -8,7 +8,7 @@ def solo_admin(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect('login')
+            return redirect('core:login')
         
         # Se usa getattr para evitar alertas de atributo desconocido en Pylance
         rol_usuario = getattr(request.user, 'rol', None)
@@ -25,7 +25,7 @@ def solo_empleado(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect('login')
+            return redirect('core:login')
         
         # Se usa getattr para evitar alertas de atributo desconocido en Pylance
         rol_usuario = getattr(request.user, 'rol', None)
@@ -42,6 +42,6 @@ def login_requerido(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect('login')
+            return redirect('core:login')
         return view_func(request, *args, **kwargs)
     return wrapper

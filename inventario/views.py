@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, F
 
 from inventario.models import (
     Producto, Categoria, Proveedor,
@@ -21,8 +21,9 @@ from inventario.decorators import solo_admin, login_requerido
 
 @login_requerido
 def dashboard(request):
-    productos_bajo_stock = Producto.objects.filter(activo=True).order_by('stock_actual')
-    productos_bajo_stock = [p for p in productos_bajo_stock if p.stock_bajo]
+    productos_bajo_stock = Producto.objects.filter(
+        activo=True, stock_actual__lte=F('stock_minimo')
+    ).order_by('stock_actual')
 
     solicitudes_pendientes = SolicitudInventario.objects.filter(
         estado='pendiente'

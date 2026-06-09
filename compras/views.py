@@ -11,6 +11,7 @@ from django.forms import modelformset_factory
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from django.db.models import F as Fexpr
 from .models import Compra, DetalleCompra
 from .forms  import (
     CompraForm, DetalleCompraFormSet,
@@ -76,7 +77,7 @@ def crear_compra(request):
         sugerencias = Producto.objects.filter(
             proveedor_id=proveedor_id, activo=True
         ).filter(
-            Q(stock_actual__lte=Q('stock_minimo')) | Q(en_tendencia=True)
+            Q(stock_actual__lte=Fexpr('stock_minimo')) | Q(en_tendencia=True)
         ).order_by('stock_actual')[:10]
 
     if request.method == 'POST':

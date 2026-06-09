@@ -121,15 +121,22 @@
 <body>
 
 <nav id="sidebar">
-  <div class="sidebar-brand">Inv. <span>Ramón</span></div>
+  <div class="sidebar-brand">Inv. <span>Ramón</span> <br><small style="opacity:.5;font-size:.6rem">Sistema de gestión</small></div>
 
-  <div class="mt-2">
+  {% if tasa_bcv %}
+  <div style="padding:.35rem 1rem;font-size:.72rem;color:#94a3b8;border-bottom:1px solid #1e293b;">
+    <i class="bi bi-currency-exchange me-1"></i>
+    BCV hoy: <strong>Bs. {{ tasa_bcv.tasa_bs_usd|default_if_none:"—" }}</strong>
+  </div>
+  {% endif %}
+
+  <div class="mt-1">
     <div class="nav-section">Principal</div>
-    <a href="{% url 'inventario:dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+    <a href="{% url 'core:dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.namespace == 'core' %}active{% endif %}">
       <i class="bi bi-grid-1x2"></i> Dashboard
     </a>
 
-    <div class="nav-section mt-2">Inventario</div>
+    <div class="nav-section mt-1">Inventario</div>
     <a href="{% url 'inventario:lista_productos' %}" class="sidebar-link {% if 'producto' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-box-seam"></i> Productos
     </a>
@@ -137,26 +144,55 @@
       <i class="bi bi-send"></i> Solicitudes
     </a>
 
-    {% if user.rol == 'admin' %}
-    <div class="nav-section mt-2">Administración</div>
+    <div class="nav-section mt-1">Compras</div>
+    <a href="{% url 'compras:lista_compras' %}" class="sidebar-link {% if 'compra' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-cart3"></i> Órdenes de compra
+    </a>
+    {% if user.es_admin %}
+    <a href="{% url 'core:lista_cuentas_pagar' %}" class="sidebar-link {% if 'pagar' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-credit-card"></i> Cuentas por pagar
+    </a>
+    {% endif %}
+
+    <div class="nav-section mt-1">Ventas</div>
+    <a href="{% url 'ventas:lista_ventas' %}" class="sidebar-link {% if 'venta' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-receipt"></i> Ventas
+    </a>
+    {% if user.es_admin %}
+    <a href="{% url 'core:lista_cuentas_cobrar' %}" class="sidebar-link {% if 'cobrar' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-cash-stack"></i> Cuentas por cobrar
+    </a>
+    {% endif %}
+
+    {% if user.es_admin %}
+    <div class="nav-section mt-1">Administración</div>
     <a href="{% url 'inventario:lista_categorias' %}" class="sidebar-link {% if 'categoria' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-tags"></i> Categorías
     </a>
     <a href="{% url 'inventario:lista_proveedores' %}" class="sidebar-link {% if 'proveedor' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-truck"></i> Proveedores
     </a>
+    <a href="{% url 'core:lista_usuarios' %}" class="sidebar-link {% if 'usuario' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-people"></i> Personal
+    </a>
+    <a href="{% url 'reportes:index' %}" class="sidebar-link {% if 'reporte' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-bar-chart-line"></i> Reportes
+    </a>
+    <a href="{% url 'core:auditoria' %}" class="sidebar-link {% if 'auditoria' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-shield-check"></i> Auditoría
+    </a>
     {% endif %}
   </div>
 
   <div class="sidebar-footer">
-    <div class="d-flex align-items-center gap-2">
-      <i class="bi bi-person-circle fs-5"></i>
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <i class="bi bi-person-circle fs-4" style="color:#94a3b8"></i>
       <div>
-        <div class="fw-600 text-white" style="font-size:.8rem">{{ user.get_full_name|default:user.username }}</div>
+        <div style="font-size:.8rem;color:#e2e8f0;font-weight:600">{{ user.get_nombre_completo }}</div>
         <span class="badge-rol">{{ user.get_rol_display }}</span>
       </div>
     </div>
-    <a href="{% url 'core:logout' %}" class="sidebar-link mt-2 px-0" style="color:#ef4444">
+    <a href="{% url 'core:logout' %}" class="sidebar-link px-0" style="color:#f87171">
       <i class="bi bi-box-arrow-left"></i> Cerrar sesión
     </a>
   </div>

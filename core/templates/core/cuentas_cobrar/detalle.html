@@ -29,6 +29,7 @@
       <div class="card-body">
         <form method="post" action="{% url 'core:registrar_pago_cliente' cuenta.pk %}">
           {% csrf_token %}
+          {{ form.tasa_bcv.as_hidden }}
           <div class="mb-3">
             <label class="form-label fw-semibold">{{ form.monto_bs.label }}</label>
             {{ form.monto_bs }}

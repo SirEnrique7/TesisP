@@ -100,9 +100,8 @@ def rep_ventas(request):
     # 3. Traemos la tasa de cambio de forma segura
     try:
         tasa = TasaCambio.tasa_vigente()
-        # Si la tasa es un objeto y necesitas su valor numérico (ej. tasa.valor)
-        # nos aseguramos de que no sea 0 para evitar divisiones por cero en el HTML
-        valor_tasa = getattr(tasa, 'valor', 1) or 1 
+        # El campo del modelo es tasa_bs_usd; protegemos contra tasa=None
+        valor_tasa = getattr(tasa, 'tasa_bs_usd', 1) or 1
     except Exception:
         tasa = None
         valor_tasa = 1

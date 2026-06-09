@@ -55,7 +55,8 @@ def detalle_cuenta_pagar(request, pk):
     abonos = cuenta.abonos.select_related('registrado_por').all()
     
     tasa_hoy = TasaCambio.tasa_vigente()
-    form = AbonoProveedorForm(cuenta=cuenta, initial={'tasa_bcv': tasa_hoy})
+    tasa_valor = tasa_hoy.tasa_bs_usd if tasa_hoy else None
+    form = AbonoProveedorForm(cuenta=cuenta, initial={'tasa_bcv': tasa_valor})
 
     return render(request, 'core/cuentas_pagar/detalle.html', {
         'cuenta': cuenta,
@@ -91,6 +92,10 @@ def registrar_abono_proveedor(request, pk):
                     messages.success(request, 'Abono registrado correctamente.')
                 except ValueError as e:
                     messages.error(request, str(e))
+            else:
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f'{field}: {error}')
     return redirect('core:detalle_cuenta_pagar', pk=pk)
 
 
@@ -133,7 +138,8 @@ def detalle_cuenta_cobrar(request, pk):
     cuenta = get_object_or_404(CuentaPorCobrar, pk=pk)
     abonos = cuenta.abonos.select_related('registrado_por').all()
     tasa_hoy = TasaCambio.tasa_vigente()
-    form = PagoClienteForm(cuenta=cuenta, initial={'tasa_bcv': tasa_hoy})
+    tasa_valor = tasa_hoy.tasa_bs_usd if tasa_hoy else None
+    form = PagoClienteForm(cuenta=cuenta, initial={'tasa_bcv': tasa_valor})
 
     return render(request, 'core/cuentas_cobrar/detalle.html', {
         'cuenta': cuenta,
@@ -169,6 +175,10 @@ def registrar_pago_cliente(request, pk):
                     messages.success(request, 'Pago registrado correctamente.')
                 except ValueError as e:
                     messages.error(request, str(e))
+            else:
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f'{field}: {error}')
     return redirect('core:detalle_cuenta_cobrar', pk=pk)
 
 
