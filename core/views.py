@@ -7,8 +7,10 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
-from django.urls import reverse # CORRECCIÓN: Para reversión estricta de URLs
-from django.db.models import F, Q, Sum # CORRECCIÓN: Para optimización de Queries en BD
+from django.urls import reverse
+from django.db.models import F, Q, Sum, Count
+import json
+from datetime import date, timedelta
 
 from .models import Usuario, TasaCambio, AuditoriaAccion
 from .forms import (
@@ -83,49 +85,85 @@ def dashboard(request):
     from compras.models import Compra
     from ventas.models import Venta
 
-    tasa_hoy = TasaCambio.tasa_vigente()
+    tasa_hoy    = TasaCambio.tasa_vigente()
+    hoy         = date.today()
 
-    # CORRECCIÓN: Filtrado optimizado directo en Base de Datos (SQL) 
-    # Evita traer miles de registros a la memoria RAM del servidor.
-    total_productos = Producto.objects.filter(activo=True).count()
-    
-    # Asumiendo que stock_bajo se calcula cuando stock actual es menor o igual al minimo
-    productos_bajo = Producto.objects.filter(
-        activo=True,
-        stock_actual__lte=F('stock_minimo')
+    total_productos    = Producto.objects.filter(activo=True).count()
+    productos_bajo     = Producto.objects.filter(
+        activo=True, stock_actual__lte=F('stock_minimo')
     ).order_by('stock_actual')[:5]
-    
     compras_pendientes = Compra.objects.filter(estado='pendiente').count()
+    ventas_mes         = Venta.objects.filter(
+        fecha__year=hoy.year, fecha__month=hoy.month,
+        estado__in=['procesada', 'a_credito']
+    ).count()
 
     context = {
-        'tasa_hoy':            tasa_hoy,
-        'total_productos':     total_productos,
-        'productos_bajo':      productos_bajo,
-        'compras_pendientes':  compras_pendientes,
+        'tasa_hoy':             tasa_hoy,
+        'total_productos':      total_productos,
+        'productos_bajo':       productos_bajo,
+        'compras_pendientes':   compras_pendientes,
+        'ventas_mes':           ventas_mes,
         'puede_ver_financiero': request.user.es_admin(),
     }
 
     if request.user.es_admin():
         from core.models_bimonetario import CuentaPorCobrar, CuentaPorPagar
-        from datetime import date
 
-        # Consultas de agregación SQL directas
         context['cuentas_por_cobrar'] = CuentaPorCobrar.objects.filter(
             estado='pendiente'
-        ).aggregate(total=Sum('saldo_restante'))['total'] or 0
+        ).aggregate(t=Sum('saldo_restante'))['t'] or 0
 
         context['cuentas_por_pagar'] = CuentaPorPagar.objects.filter(
             estado='pendiente'
-        ).aggregate(total=Sum('saldo_restante'))['total'] or 0
+        ).aggregate(t=Sum('saldo_restante'))['t'] or 0
 
         context['creditos_vencidos'] = CuentaPorCobrar.objects.filter(
-            estado='pendiente',
-            fecha_estimada_pago__lt=date.today()
+            estado='pendiente', fecha_estimada_pago__lt=hoy
         ).count()
 
         context['ventas_hoy'] = Venta.objects.filter(
-            fecha=date.today(), estado__in=['procesada', 'a_credito']
-        ).aggregate(total=Sum('total_bs'))['total'] or 0
+            fecha=hoy, estado__in=['procesada', 'a_credito']
+        ).aggregate(t=Sum('total_bs'))['t'] or 0
+
+        # ── Chart 1: ventas últimos 7 días ──
+        labels_7d, ventas_7d = [], []
+        for i in range(6, -1, -1):
+            dia   = hoy - timedelta(days=i)
+            total = Venta.objects.filter(
+                fecha=dia, estado__in=['procesada', 'a_credito']
+            ).aggregate(t=Sum('total_bs'))['t'] or 0
+            labels_7d.append(dia.strftime('%d/%m'))
+            ventas_7d.append(round(float(total), 2))
+
+        # ── Chart 2: compras por estado ──
+        compras_estados = dict(
+            Compra.objects.values_list('estado').annotate(c=Count('id'))
+        )
+        estado_labels  = ['Pendiente', 'Aprobada', 'Recibida', 'Rechazada', 'Cancelada']
+        estado_keys    = ['pendiente', 'aprobada', 'recibida', 'rechazada', 'cancelada']
+        estado_valores = [compras_estados.get(k, 0) for k in estado_keys]
+
+        # ── Chart 3: top 5 productos stock crítico ──
+        criticos = list(
+            Producto.objects.filter(activo=True, stock_actual__lte=F('stock_minimo'))
+            .order_by('stock_actual')
+            .values('nombre', 'stock_actual', 'stock_minimo')[:5]
+        )
+
+        # ── Actividad reciente ──
+        actividad = AuditoriaAccion.objects.select_related('usuario').order_by('-id')[:6]
+
+        context.update({
+            'chart_labels_7d':      json.dumps(labels_7d),
+            'chart_ventas_7d':      json.dumps(ventas_7d),
+            'chart_estado_labels':  json.dumps(estado_labels),
+            'chart_estado_valores': json.dumps(estado_valores),
+            'chart_criticos_nombres': json.dumps([c['nombre'][:18] for c in criticos]),
+            'chart_criticos_stock':   json.dumps([c['stock_actual'] for c in criticos]),
+            'chart_criticos_minimo':  json.dumps([c['stock_minimo'] for c in criticos]),
+            'actividad_reciente':   actividad,
+        })
 
     return render(request, 'core/dashboard.html', context)
 
@@ -136,9 +174,21 @@ def dashboard(request):
 
 @solo_admin
 def lista_usuarios(request):
-    # Se añade ordenamiento explícito por estado y apellido para la vista
-    usuarios = Usuario.objects.all().order_by('-is_active', 'last_name', 'first_name')
-    return render(request, 'core/lista_usuarios.html', {'usuarios': usuarios})
+    from django.core.paginator import Paginator
+    qs = Usuario.objects.all().order_by('-is_active', 'last_name', 'first_name')
+
+    params = request.GET.copy()
+    params.pop('page', None)
+    filter_params = params.urlencode()
+
+    paginator = Paginator(qs, 20)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'core/lista_usuarios.html', {
+        'usuarios':      page_obj,
+        'page_obj':      page_obj,
+        'filter_params': filter_params,
+    })
 
 
 @solo_admin
@@ -287,9 +337,21 @@ def reset_password(request, uidb64, token):
 
 @solo_admin
 def log_auditoria(request):
-    # CORRECCIÓN: Se añade ordenamiento explícito por fecha descendente (-id o -fecha)
-    logs = AuditoriaAccion.objects.select_related('usuario').all().order_by('-id')[:200]
-    return render(request, 'core/auditoria.html', {'logs': logs})
+    from django.core.paginator import Paginator
+    qs = AuditoriaAccion.objects.select_related('usuario').all().order_by('-id')
+
+    params = request.GET.copy()
+    params.pop('page', None)
+    filter_params = params.urlencode()
+
+    paginator = Paginator(qs, 50)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'core/auditoria.html', {
+        'logs':          page_obj,
+        'page_obj':      page_obj,
+        'filter_params': filter_params,
+    })
 
 
 # ─────────────────────────────────────────────
@@ -298,6 +360,17 @@ def log_auditoria(request):
 
 @solo_admin
 def historial_tasa(request):
-    # CORRECCIÓN: Se añade ordenamiento por fecha descendente para ver siempre la tasa más reciente arriba
     tasas = TasaCambio.objects.all().order_by('-fecha')[:30]
     return render(request, 'core/historial_tasa.html', {'tasas': tasas})
+
+
+# ─────────────────────────────────────────────
+# PÁGINAS DE ERROR PERSONALIZADAS
+# ─────────────────────────────────────────────
+
+def error_404(request, exception=None):
+    return render(request, '404.html', status=404)
+
+
+def error_500(request):
+    return render(request, '500.html', status=500)

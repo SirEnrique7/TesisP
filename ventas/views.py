@@ -25,6 +25,10 @@ from inventario.models       import MovimientoInventario, Producto
 
 @login_requerido
 def lista_ventas(request):
+    import csv
+    from django.http import HttpResponse
+    from django.core.paginator import Paginator
+
     estado = request.GET.get('estado', '')
     q      = request.GET.get('q', '')
     fecha  = request.GET.get('fecha', '')
@@ -47,24 +51,57 @@ def lista_ventas(request):
 
     qs = qs.order_by('-fecha', '-hora')
 
-    # Totales del día (solo admin)
+    # ── Exportar CSV (respeta filtros activos) ──
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = 'attachment; filename="ventas.csv"'
+        writer = csv.writer(response)
+        writer.writerow([
+            'N° Factura', 'Fecha', 'Hora', 'Cliente', 'Cédula/RIF',
+            'Empleado', 'Método Pago', 'Estado',
+            'Subtotal Bs', 'IVA Bs', 'Total Bs', 'Total USD', 'Tasa BCV',
+        ])
+        for v in qs:
+            writer.writerow([
+                v.numero_factura,
+                v.fecha.strftime('%d/%m/%Y'),
+                v.hora.strftime('%H:%M') if v.hora else '',
+                v.cliente.get_nombre_completo() if v.cliente else '',
+                v.cliente.cedula_rif if v.cliente else '',
+                v.empleado.get_nombre_completo() if v.empleado else '',
+                v.get_metodo_pago_display(),
+                v.get_estado_display(),
+                v.subtotal_bs, v.iva_bs, v.total_bs,
+                v.total_usd or '', v.tasa_bcv_momento or '',
+            ])
+        return response
+
+    # ── Totales del día (solo admin) ──
     totales = {}
     if request.user.es_admin():
         from datetime import date
         totales = Venta.objects.filter(
             fecha=date.today(),
             estado__in=['procesada', 'a_credito', 'pagada']
-        ).aggregate(
-            total_bs  = Sum('total_bs'),
-            total_usd = Sum('total_usd'),
-        )
+        ).aggregate(total_bs=Sum('total_bs'), total_usd=Sum('total_usd'))
+
+    # ── Paginación ──
+    params = request.GET.copy()
+    params.pop('page', None)
+    params.pop('export', None)
+    filter_params = params.urlencode()
+
+    paginator = Paginator(qs, 20)
+    page_obj  = paginator.get_page(request.GET.get('page'))
 
     return render(request, 'ventas/lista_ventas.html', {
-        'ventas':  qs,
-        'estado':  estado,
-        'q':       q,
-        'fecha':   fecha,
-        'totales': totales,
+        'ventas':        page_obj,
+        'page_obj':      page_obj,
+        'filter_params': filter_params,
+        'estado':        estado,
+        'q':             q,
+        'fecha':         fecha,
+        'totales':       totales,
     })
 
 

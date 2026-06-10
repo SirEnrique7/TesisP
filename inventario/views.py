@@ -47,30 +47,66 @@ def dashboard(request):
 
 @login_requerido
 def lista_productos(request):
+    import csv
+    from django.http import HttpResponse
+    from django.core.paginator import Paginator
+
     query      = request.GET.get('q', '')
     categoria  = request.GET.get('categoria', '')
     solo_bajos = request.GET.get('bajo_stock', '')
 
-    productos = Producto.objects.filter(activo=True).select_related('categoria', 'proveedor')
+    qs = Producto.objects.filter(activo=True).select_related('categoria', 'proveedor')
 
     if query:
-        productos = productos.filter(
+        qs = qs.filter(
             Q(nombre__icontains=query) | Q(codigo__icontains=query)
         )
     if categoria:
-        productos = productos.filter(categoria_id=categoria)
-
-    productos = list(productos.order_by('nombre'))
-
+        qs = qs.filter(categoria_id=categoria)
     if solo_bajos:
-        productos = [p for p in productos if p.stock_bajo]
+        qs = qs.filter(stock_actual__lte=F('stock_minimo'))
+
+    qs = qs.order_by('nombre')
+
+    # ── Exportar CSV ──
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = 'attachment; filename="productos.csv"'
+        writer = csv.writer(response)
+        writer.writerow([
+            'Código', 'Nombre', 'Categoría', 'Proveedor',
+            'Precio Costo Bs', 'Precio Venta Bs', 'Precio USD',
+            'Stock Actual', 'Stock Mínimo', 'Estado',
+        ])
+        for p in qs:
+            writer.writerow([
+                p.codigo, p.nombre,
+                p.categoria.nombre if p.categoria else '',
+                p.proveedor.nombre if p.proveedor else '',
+                p.precio_costo if hasattr(p, 'precio_costo') else '',
+                p.precio_venta, p.precio_usd if hasattr(p, 'precio_usd') else '',
+                p.stock_actual, p.stock_minimo,
+                'Activo' if p.activo else 'Inactivo',
+            ])
+        return response
 
     categorias = Categoria.objects.all()
 
+    # ── Paginación ──
+    params = request.GET.copy()
+    params.pop('page', None)
+    params.pop('export', None)
+    filter_params = params.urlencode()
+
+    paginator = Paginator(qs, 25)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
     return render(request, 'inventario/lista_productos.html', {
-        'productos':  productos,
-        'categorias': categorias,
-        'query':      query,
+        'productos':     page_obj,
+        'page_obj':      page_obj,
+        'filter_params': filter_params,
+        'categorias':    categorias,
+        'query':         query,
     })
 
 
@@ -239,16 +275,29 @@ def editar_proveedor(request, pk):
 
 @login_requerido
 def lista_solicitudes(request):
+    from django.core.paginator import Paginator
+
     if request.user.es_admin():
-        solicitudes = SolicitudInventario.objects.all().select_related(
+        qs = SolicitudInventario.objects.all().select_related(
             'empleado', 'producto', 'admin'
         ).order_by('-fecha_solicitud')
     else:
-        solicitudes = SolicitudInventario.objects.filter(
+        qs = SolicitudInventario.objects.filter(
             empleado=request.user
         ).select_related('producto', 'admin').order_by('-fecha_solicitud')
 
-    return render(request, 'inventario/lista_solicitudes.html', {'solicitudes': solicitudes})
+    params = request.GET.copy()
+    params.pop('page', None)
+    filter_params = params.urlencode()
+
+    paginator = Paginator(qs, 20)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'inventario/lista_solicitudes.html', {
+        'solicitudes':   page_obj,
+        'page_obj':      page_obj,
+        'filter_params': filter_params,
+    })
 
 
 @login_requerido

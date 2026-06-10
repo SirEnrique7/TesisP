@@ -32,9 +32,14 @@
           {% if form.proveedor.errors %}<div class="text-danger small mt-1">{{ form.proveedor.errors }}</div>{% endif %}
         </div>
         <div class="mb-3">
-          <label class="form-label fw-semibold">Referencia del Documento</label>
-          {{ form.referencia_documento }}
-          {% if form.referencia_documento.errors %}<div class="text-danger small mt-1">{{ form.referencia_documento.errors }}</div>{% endif %}
+          <label class="form-label fw-semibold">{{ form.fecha_estimada.label }}</label>
+          {{ form.fecha_estimada }}
+          {% if form.fecha_estimada.errors %}<div class="text-danger small mt-1">{{ form.fecha_estimada.errors }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">{{ form.observacion.label }}</label>
+          {{ form.observacion }}
+          {% if form.observacion.errors %}<div class="text-danger small mt-1">{{ form.observacion.errors }}</div>{% endif %}
         </div>
         
         {% if form.non_field_errors or formset.non_field_errors %}
@@ -104,8 +109,8 @@
               </div>
               <div class="col-md-3">
                 <label class="form-label small fw-semibold">Cantidad</label>
-                {{ f.cantidad }}
-                {% if f.cantidad.errors %}<div class="text-danger small mt-1">{{ f.cantidad.errors }}</div>{% endif %}
+                {{ f.cantidad_pedida }}
+                {% if f.cantidad_pedida.errors %}<div class="text-danger small mt-1">{{ f.cantidad_pedida.errors }}</div>{% endif %}
               </div>
               <div class="col-md-4">
                 <label class="form-label small fw-semibold">Precio unit. (Bs.)</label>
@@ -157,7 +162,7 @@
       </div>
       <div class="col-md-3">
         <label class="form-label small fw-semibold">Cantidad</label>
-        <input type="number" name="form-__prefix__-cantidad" id="id_form-__prefix__-cantidad" class="form-control cant-field" min="1" value="1" required>
+        <input type="number" name="form-__prefix__-cantidad_pedida" id="id_form-__prefix__-cantidad_pedida" class="form-control cant-field" min="1" value="1" required>
       </div>
       <div class="col-md-4">
         <label class="form-label small fw-semibold">Precio unit. (Bs.)</label>

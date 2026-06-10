@@ -3,6 +3,10 @@
 {% block topbar_titulo %}Órdenes de compra{% endblock %}
 
 {% block topbar_acciones %}
+<a href="?{% if filter_params %}{{ filter_params }}&{% endif %}export=csv"
+   class="btn btn-sm btn-outline-success">
+  <i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar CSV
+</a>
 <a href="{% url 'compras:crear_compra' %}" class="btn btn-sm btn-primary">
   <i class="bi bi-plus-lg me-1"></i>Nueva orden
 </a>
@@ -136,6 +140,9 @@
         </tbody>
       </table>
     </div>
+  </div>
+  <div class="card-body pt-0">
+    {% include 'core/_paginacion.html' %}
   </div>
 </div>
 {% endblock %}

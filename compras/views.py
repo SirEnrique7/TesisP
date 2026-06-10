@@ -35,6 +35,10 @@ if TYPE_CHECKING:
 # ─────────────────────────────────────────────
 @login_requerido
 def lista_compras(request):
+    import csv
+    from django.http import HttpResponse
+    from django.core.paginator import Paginator
+
     estado = request.GET.get('estado', '')
     q      = request.GET.get('q', '')
 
@@ -53,14 +57,46 @@ def lista_compras(request):
 
     qs = qs.order_by('-fecha_creacion')
 
+    # ── Exportar CSV ──
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = 'attachment; filename="compras.csv"'
+        writer = csv.writer(response)
+        writer.writerow([
+            'N° Referencia', 'Fecha Creación', 'Proveedor', 'Estado',
+            'Total Bs', 'Fecha Estimada', 'Creada por',
+        ])
+        for c in qs:
+            writer.writerow([
+                c.numero_referencia,
+                c.fecha_creacion.strftime('%d/%m/%Y'),
+                c.proveedor.nombre,
+                c.get_estado_display(),
+                c.total or '',
+                c.fecha_estimada.strftime('%d/%m/%Y') if c.fecha_estimada else '',
+                c.creada_por.get_nombre_completo() if c.creada_por else '',
+            ])
+        return response
+
     pendientes = Compra.objects.filter(estado='pendiente').count() if request.user.es_admin() else 0
 
+    # ── Paginación ──
+    params = request.GET.copy()
+    params.pop('page', None)
+    params.pop('export', None)
+    filter_params = params.urlencode()
+
+    paginator = Paginator(qs, 20)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
     return render(request, 'compras/lista_compras.html', {
-        'compras':    qs,
-        'estados': Compra.ESTADO_CHOICES,
-        'estado':     estado,
-        'q':          q,
-        'pendientes': pendientes,
+        'compras':       page_obj,
+        'page_obj':      page_obj,
+        'filter_params': filter_params,
+        'estados':       Compra.ESTADO_CHOICES,
+        'estado':        estado,
+        'q':             q,
+        'pendientes':    pendientes,
     })
 
 

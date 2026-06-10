@@ -10,11 +10,14 @@ Django==4.2.16
 requests==2.31.0
 beautifulsoup4==4.12.3
 
-# Base de datos PostgreSQL (opcional, para producción)
+# Variables de entorno (.env)
+python-decouple==3.8
+
+# Servidor de producción (reemplaza a runserver)
+gunicorn==21.2.0
+
+# Archivos estáticos en producción (sin nginx dedicado)
+whitenoise==6.6.0
+
+# Base de datos PostgreSQL (activar para producción)
 # psycopg2-binary==2.9.9
-
-# Variables de entorno (recomendado para producción)
-# python-decouple==3.8
-
-# Servidor de producción (alternativa a runserver)
-# gunicorn==21.2.0
