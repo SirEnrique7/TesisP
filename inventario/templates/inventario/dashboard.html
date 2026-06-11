@@ -62,7 +62,7 @@
           <td>{{ p.stock_minimo }}</td>
           <td><strong>{{ p.cantidad_sugerida_pedido }}</strong> unidades</td>
           <td>
-            {% if user.rol == 'empleado' %}
+            {% if user.es_encargado %}
             <a href="{% url 'inventario:crear_solicitud' %}?producto={{ p.pk }}"
                class="btn btn-sm btn-primary">Solicitar</a>
             {% else %}

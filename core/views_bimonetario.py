@@ -188,13 +188,26 @@ def registrar_pago_cliente(request, pk):
 
 @solo_admin
 def lista_clientes(request):
+    from django.core.paginator import Paginator
     q = request.GET.get('q', '')
     clientes = Cliente.objects.all().order_by('apellido', 'nombre')
     if q:
         clientes = clientes.filter(
             Q(nombre__icontains=q) | Q(apellido__icontains=q) | Q(cedula_rif__icontains=q)
         )
-    return render(request, 'core/clientes/lista.html', {'clientes': clientes, 'q': q})
+    params = request.GET.copy()
+    params.pop('page', None)
+    filter_params = params.urlencode()
+
+    paginator = Paginator(clientes, 25)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'core/clientes/lista.html', {
+        'clientes':      page_obj,
+        'page_obj':      page_obj,
+        'filter_params': filter_params,
+        'q':             q,
+    })
 
 
 @solo_admin

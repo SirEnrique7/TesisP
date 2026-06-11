@@ -118,7 +118,7 @@ def crear_compra(request):
 
     if request.method == 'POST':
         form    = CompraForm(request.POST)
-        formset = DetalleCompraFormSet(request.POST)
+        formset = DetalleCompraFormSet(request.POST, prefix='form')
 
         if form.is_valid() and formset.is_valid():
             try:
@@ -155,7 +155,7 @@ def crear_compra(request):
             messages.error(request, 'Revisa los errores en el formulario de productos.')
     else:
         form    = CompraForm()
-        formset = DetalleCompraFormSet(queryset=DetalleCompra.objects.none())
+        formset = DetalleCompraFormSet(queryset=DetalleCompra.objects.none(), prefix='form')
 
     return render(request, 'compras/form_compra.html', {
         'form':        form,

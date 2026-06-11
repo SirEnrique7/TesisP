@@ -3,12 +3,12 @@
 {% block topbar_titulo %}Detalle del producto{% endblock %}
 
 {% block topbar_acciones %}
-  {% if user.rol == 'admin' %}
+  {% if user.es_admin %}
   <a href="{% url 'inventario:editar_producto' producto.pk %}" class="btn btn-sm btn-outline-primary">
     <i class="bi bi-pencil me-1"></i>Editar
   </a>
   {% endif %}
-  {% if user.rol == 'empleado' and producto.stock_bajo %}
+  {% if user.es_encargado and producto.stock_bajo %}
   <a href="{% url 'inventario:crear_solicitud' %}?producto={{ producto.pk }}" class="btn btn-sm btn-warning">
     <i class="bi bi-send me-1"></i>Solicitar reposición
   </a>

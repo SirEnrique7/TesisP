@@ -74,7 +74,7 @@
           {% if user.es_admin %}<th>Empleado</th>{% endif %}
           <th>Cliente</th>
           <th>Método</th>
-          {% if user.es_admin %}<th class="text-end">Total (Bs.)</th>{% endif %}
+          <th class="text-end">Total (Bs.)</th>
           <th>Estado</th>
           <th></th>
         </tr>
@@ -94,9 +94,7 @@
               {{ v.get_metodo_pago_display }}
             </span>
           </td>
-          {% if user.es_admin %}
-          <td class="text-end">Bs. {{ v.total_bs|floatformat:2 }}</td>
-          {% endif %}
+          <td class="text-end fw-semibold">Bs. {{ v.total_bs|floatformat:2 }}</td>
           <td>
             {% if v.estado == 'procesada' %}<span class="badge bg-success">Procesada</span>
             {% elif v.estado == 'a_credito' %}<span class="badge bg-warning text-dark">A crédito</span>
@@ -115,14 +113,12 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="{% if user.es_admin %}8{% else %}6{% endif %}" class="text-center text-muted py-5">
+          <td colspan="{% if user.es_admin %}8{% else %}7{% endif %}" class="text-center text-muted py-5">
             <i class="bi bi-receipt fs-1 d-block mb-2"></i>
             No hay ventas registradas que coincidan con la búsqueda.
-            {% if user.es_admin %}
             <a href="{% url 'ventas:crear_venta' %}" class="btn btn-primary btn-sm ms-2">
               Registrar primera venta
             </a>
-            {% endif %}
           </td>
         </tr>
         {% endfor %}

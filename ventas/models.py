@@ -99,7 +99,7 @@ class Venta(models.Model):
             ).quantize(Decimal('0.01'))
 
         self.save(update_fields=[
-            'subtotal_bs', 'iva_bs', 'total_bs', 'tasa_bcv_momento', 'total_usd', 'estado'
+            'subtotal_bs', 'iva_bs', 'total_bs', 'tasa_bcv_momento', 'total_usd',
         ])
 
     def es_credito(self):

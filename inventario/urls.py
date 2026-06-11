@@ -31,4 +31,5 @@ urlpatterns = [
     
     # ENDPOINTS ASÍNCRONOS (APIs)
     path('api/sugerencia/', api.api_sugerencia_cantidad, name='api_sugerencia'),
+    path('api/producto/',   api.api_producto_info,       name='api_producto'),
 ]

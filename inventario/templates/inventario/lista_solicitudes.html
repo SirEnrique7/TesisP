@@ -3,7 +3,7 @@
 {% block topbar_titulo %}Solicitudes de inventario{% endblock %}
 
 {% block topbar_acciones %}
-  {% if user.rol == 'empleado' %}
+  {% if user.es_encargado %}
   <a href="{% url 'inventario:crear_solicitud' %}" class="btn btn-sm btn-primary">
     <i class="bi bi-plus-lg me-1"></i>Nueva solicitud
   </a>
@@ -18,20 +18,20 @@
       <thead>
         <tr>
           <th>#</th>
-          {% if user.rol == 'admin' %}<th>Empleado</th>{% endif %}
+          {% if user.es_admin %}<th>Empleado</th>{% endif %}
           <th>Producto</th>
           <th>Cantidad</th>
           <th>Fecha</th>
           <th>Estado</th>
           <th>Observación</th>
-          {% if user.rol == 'admin' %}<th></th>{% endif %}
+          {% if user.es_admin %}<th></th>{% endif %}
         </tr>
       </thead>
       <tbody>
         {% for s in solicitudes %}
         <tr>
           <td><small class="text-muted">{{ s.id }}</small></td>
-          {% if user.rol == 'admin' %}
+          {% if user.es_admin %}
           <td class="fw-semibold">{{ s.empleado.username }}</td>
           {% endif %}
           <td>{{ s.producto.nombre }}</td>
@@ -43,7 +43,7 @@
             </span>
           </td>
           <td class="text-muted" title="{{ s.observacion }}">{{ s.observacion|default:"—"|truncatechars:40 }}</td>
-          {% if user.rol == 'admin' %}
+          {% if user.es_admin %}
           <td class="text-end pe-3">
             {% if s.estado == 'pendiente' %}
             <a href="{% url 'inventario:responder_solicitud' s.pk %}" class="btn btn-sm btn-primary py-1">

@@ -27,5 +27,9 @@
       {% empty %}<tr><td colspan="5" class="text-center text-muted py-4">Sin clientes registrados.</td></tr>{% endfor %}
     </tbody>
   </table>
-</div></div>
+</div>
+<div class="card-body pt-0">
+  {% include 'core/_paginacion.html' %}
+</div>
+</div>
 {% endblock %}

@@ -9,7 +9,6 @@ from django.db import transaction
 from django.db.models import Q, Sum
 from django.http import HttpResponse
 from decimal import Decimal
-import io
 
 from .models import Venta, DetalleVenta
 from .forms  import VentaForm, DetalleVentaFormSet
@@ -115,7 +114,7 @@ def crear_venta(request):
 
     if request.method == 'POST':
         form    = VentaForm(request.POST)
-        formset = DetalleVentaFormSet(request.POST)
+        formset = DetalleVentaFormSet(request.POST, prefix='detalleventa_set')
 
         form_ok    = form.is_valid()
         formset_ok = formset.is_valid()
@@ -188,7 +187,7 @@ def crear_venta(request):
             messages.error(request, 'Revisa los errores antes de continuar.')
     else:
         form    = VentaForm()
-        formset = DetalleVentaFormSet()
+        formset = DetalleVentaFormSet(prefix='detalleventa_set')
 
     return render(request, 'ventas/form_venta.html', {
         'form':     form,

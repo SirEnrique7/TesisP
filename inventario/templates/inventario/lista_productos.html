@@ -89,12 +89,12 @@
               <a href="{% url 'inventario:detalle_producto' p.pk %}" class="btn btn-sm btn-outline-secondary" title="Ver detalles">
                 <i class="bi bi-eye"></i>
               </a>
-              {% if user.rol == 'admin' %}
+              {% if user.es_admin %}
               <a href="{% url 'inventario:editar_producto' p.pk %}" class="btn btn-sm btn-outline-primary" title="Editar">
                 <i class="bi bi-pencil"></i>
               </a>
               {% endif %}
-              {% if user.rol == 'empleado' and p.stock_bajo %}
+              {% if user.es_encargado and p.stock_bajo %}
               <a href="{% url 'inventario:crear_solicitud' %}?producto={{ p.pk }}"
                  class="btn btn-sm btn-warning" title="Solicitar reposición">
                 <i class="bi bi-send-fill"></i>

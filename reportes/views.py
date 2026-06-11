@@ -83,18 +83,16 @@ def rep_ventas(request):
     inicio, fin = _rango_fechas(request)
     
     try:
-        # 1. Intentamos obtener los datos del reporte normalmente
         datos = reporte_ventas(inicio, fin)
     except Exception:
-        # 2. Si SQLite explota por falta de datos en ese rango de fechas,
-        # creamos un diccionario de emergencia con valores en cero.
         datos = {
-            'ventas': [],
-            'total_ventas': 0,
-            'cantidad_ventas': 0,
-            'promedio_ventas': 0,
-            'ganancias': 0,
-            # Si tu plantilla usa otros nombres de variables, agrégalos aquí en 0
+            'ventas':        [],
+            'totales':       {'total_bs': 0, 'total_usd': 0, 'cantidad': 0},
+            'por_dia':       [],
+            'top_productos': [],
+            'por_metodo':    [],
+            'fecha_inicio':  inicio,
+            'fecha_fin':     fin,
         }
 
     # 3. Traemos la tasa de cambio de forma segura
